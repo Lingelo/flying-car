@@ -63,13 +63,13 @@ void main() {
   } else {
     // Rotating ads: a big glyph line, a gradient band and a scrolling ticker, changing every 6 s.
     float slot = floor(uTime / 6.0 + seed * 10.0);
-    float layout = signHash(vec2(slot, seed * 97.0));
+    float adLayout = signHash(vec2(slot, seed * 97.0));
     vec3 hue2 = neonHue(floor(signHash(vec2(seed, slot)) * 4.0));
     vec3 bg = mix(hue * 0.18, hue2 * 0.35, uv.y + 0.2 * sin(uTime * 0.7 + seed * 6.0));
     col = bg;
     vec2 g = vec2(uv.x * aspect * 1.6, (uv.y - 0.35) * 1.6);
     vec2 cell = floor(g);
-    if (cell.y == 0.0 && layout > 0.3) col += hue2 * 1.6 * glyph(fract(g) * 1.1 - 0.05, cell + slot, seed);
+    if (cell.y == 0.0 && adLayout > 0.3) col += hue2 * 1.6 * glyph(fract(g) * 1.1 - 0.05, cell + slot, seed);
     float tick = step(0.08, uv.y) * step(uv.y, 0.22);
     vec2 tg = vec2((uv.x * aspect * 6.0) + uTime * 2.0, (uv.y - 0.08) / 0.14);
     col += hue * tick * glyph(fract(tg), floor(tg), seed + 0.5);
