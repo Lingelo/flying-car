@@ -77,7 +77,7 @@ describe('detailed procedural coupe', () => {
   it('has the parts of a real car', async () => {
     const { buildProceduralCar } = await import('./proceduralCar');
     const car = buildProceduralCar();
-    for (const name of ['body', 'canopy', 'splitter', 'diffuser', 'spoiler', 'rim', 'tyre', 'brake-disc', 'caliper', 'headlight', 'taillight', 'nozzle', 'arch', 'intake', 'door-handle', 'vent', 'side-marker', 'sill-light', 'plate', 'reflector', 'brake-light'])
+    for (const name of ['body', 'canopy', 'splitter', 'diffuser', 'spoiler', 'rim', 'tyre', 'brake-disc', 'caliper', 'headlight', 'taillight', 'nozzle', 'arch', 'intake', 'door-handle', 'vent', 'side-marker', 'sill-trim', 'plate', 'reflector', 'brake-light'])
       expect(car.root.getObjectByName(name), name).toBeDefined();
   });
 

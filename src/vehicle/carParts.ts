@@ -13,7 +13,6 @@ export function createCarMaterials() {
     arch: new THREE.MeshStandardMaterial({ color: 0x040405, roughness: 0.95, side: THREE.DoubleSide }),
     chrome: new THREE.MeshStandardMaterial({ color: 0xc9ccd2, metalness: 1, roughness: 0.08 }),
     marker: new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffa21a, emissiveIntensity: 3 }),
-    sill: new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x19e0ff, emissiveIntensity: 2.5 }),
     nozzle: new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xff7a1a, emissiveIntensity: 2.5 }),
     headlight: new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xe4f6ff, emissiveIntensity: 6 }),
   };

@@ -224,8 +224,8 @@ function addDetails(root: THREE.Group, m: CarMaterials, taillight: THREE.Materia
       root.add(slat);
     }
     root.add(flip(box('side-marker', [0.01, 0.025, 0.07], m.marker, [0, 0.74, 0.8]), sideX(0.74, 0.8)));
-    // Cyan light line along the sill between the wheels.
-    root.add(flip(box('sill-light', [0.01, 0.008, 1.66], m.sill, [0, 0.44, 0.03]), sideX(0.44, 0.03)));
+    // Brightwork line along the sill between the wheels.
+    root.add(flip(box('sill-trim', [0.01, 0.008, 1.66], m.chrome, [0, 0.44, 0.03]), sideX(0.44, 0.03)));
     // Window frame: a black B-pillar and a thin brightwork line under the side glass.
     const pillar = flip(box('pillar', [0.01, 0.2, 0.05], m.trim, [0, 1.02, -0.92]), greenhouseWarp(HALF_WIDTH, 1.02, -0.92) + 0.004);
     pillar.rotation.z = side * 0.42;
@@ -293,7 +293,6 @@ export function buildProceduralCar(): ProceduralCar {
 
   addDetails(root, m, taillight);
 
-  const rimGlow = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x19e0ff, emissiveIntensity: 1.6 });
   const thrusterMaterial = new THREE.MeshBasicMaterial({ color: 0x46f0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   thrusterMaterial.defines = { ...ADDITIVE_FOG_DEFINES };
   const wheels: Wheel[] = [];
@@ -304,10 +303,7 @@ export function buildProceduralCar(): ProceduralCar {
     const pivot = new THREE.Group();
     pivot.position.set(x, WHEEL_RADIUS, z);
     const spinner = new THREE.Group();
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(WHEEL_RADIUS * 0.7, 0.006, 6, 40), rimGlow);
-    ring.rotation.y = Math.PI / 2;
-    ring.position.x = side * width * 0.45;
-    spinner.add(buildTyre(WHEEL_RADIUS, width, m), buildRim(WHEEL_RADIUS * 0.7, width, side, m), buildBrakeDisc(0.2, m), ring);
+    spinner.add(buildTyre(WHEEL_RADIUS, width, m), buildRim(WHEEL_RADIUS * 0.7, width, side, m), buildBrakeDisc(0.2, m));
     const caliper = buildCaliper(0.19, m);
     caliper.position.x = side * 0.02;
     // Thruster glow on the inner face: faces inwards while driving, downwards once folded.

@@ -18,7 +18,6 @@ const box = (w: number, h: number, d: number, x: number, y: number, z: number, c
 
 const WHITE = new THREE.Color(1.8, 1.9, 2.2);
 const RED = new THREE.Color(2.4, 0.08, 0.15);
-const CYAN = new THREE.Color(0.2, 1.6, 2.2);
 
 /** Body and light geometries for each vehicle type (front towards +z, base at y = 0). */
 export function vehicleShapes(): { body: THREE.BufferGeometry; lights: THREE.BufferGeometry }[] {
@@ -40,7 +39,6 @@ export function vehicleShapes(): { body: THREE.BufferGeometry; lights: THREE.Buf
     const lights = mergeGeometries([
       box(width * 0.8, 0.06, 0.05, 0, height * 0.42 + 0.25, length / 2 + 0.01, WHITE),
       box(width * 0.85, 0.08, 0.05, 0, height * 0.5 + 0.25, -length / 2 - 0.01, RED),
-      box(width * 0.7, 0.03, length * 0.7, 0, 0.2, 0, CYAN),
     ]);
     return { body, lights };
   });

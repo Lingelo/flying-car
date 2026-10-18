@@ -81,7 +81,7 @@ export async function createCarVisual(load: ModelLoader = loadRoadsterGlb): Prom
       });
       visual.thrusterGlow = state.deploy;
       procedural.thrusterMaterial.opacity = 0.85 * state.deploy;
-      underglow.intensity = 40 * state.deploy;
+      underglow.intensity = 10 * state.deploy;
       procedural.taillight.emissiveIntensity = braking ? 9 : 3;
     },
   };
