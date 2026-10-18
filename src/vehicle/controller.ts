@@ -29,7 +29,11 @@ export interface CarState {
   pitch: number;
   /** Thruster deployment, 0 (wheels) to 1 (flight). */
   deploy: number;
+  /** Height of the surface under the car (street or roof), set by the world each step. */
+  floor: number;
 }
+
+const GRAVITY = 25;
 
 const approach = (value: number, target: number, rate: number, dt: number) => value + (target - value) * (1 - Math.exp(-rate * dt));
 
@@ -43,7 +47,7 @@ export class CarController {
   private steer = 0;
 
   constructor(position: Vec3 = { x: 0, y: 0, z: 0 }, yaw = 0) {
-    this.state = { mode: 'ground', position: { ...position }, velocity: { x: 0, y: 0, z: 0 }, yaw, roll: 0, pitch: 0, deploy: 0 };
+    this.state = { mode: 'ground', position: { ...position }, velocity: { x: 0, y: 0, z: 0 }, yaw, roll: 0, pitch: 0, deploy: 0, floor: 0 };
   }
 
   forward(): { x: number; z: number } {
@@ -140,7 +144,8 @@ export class CarController {
     const s = this.state;
     switch (s.mode) {
       case 'ground':
-        s.velocity.y = 0;
+        // Wheels: fall when driving off a roof, otherwise stick to the surface.
+        s.velocity.y = s.position.y > s.floor + 0.01 ? s.velocity.y - GRAVITY * dt : 0;
         s.deploy = Math.max(0, s.deploy - dt / TUNING.retractTime);
         break;
       case 'takeoff':
@@ -155,7 +160,7 @@ export class CarController {
         break;
       }
       case 'landing':
-        s.velocity.y = -Math.min(TUNING.flight.landingSpeed, Math.max(6, s.position.y * 1.5));
+        s.velocity.y = -Math.min(TUNING.flight.landingSpeed, Math.max(6, (s.position.y - s.floor) * 1.5));
         break;
     }
   }
@@ -167,13 +172,16 @@ export class CarController {
       s.velocity.y = Math.min(0, s.velocity.y);
     }
     if (s.mode === 'ground') {
-      s.position.y = 0;
-    } else if (s.mode === 'landing' && s.position.y <= 0) {
-      s.position.y = 0;
+      if (s.position.y <= s.floor) {
+        s.position.y = s.floor;
+        s.velocity.y = 0;
+      }
+    } else if (s.mode === 'landing' && s.position.y <= s.floor) {
+      s.position.y = s.floor;
       s.velocity.y = 0;
       s.mode = 'ground';
-    } else if (s.mode === 'flight' && s.position.y < TUNING.hoverMin) {
-      s.position.y = TUNING.hoverMin;
+    } else if (s.mode === 'flight' && s.position.y < s.floor + TUNING.hoverMin) {
+      s.position.y = s.floor + TUNING.hoverMin;
       s.velocity.y = Math.max(0, s.velocity.y);
     }
   }
