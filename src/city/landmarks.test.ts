@@ -33,6 +33,23 @@ describe('Tokyo landmarks', () => {
       }
   });
 
+  it('collides with the legs and decks but leaves the arches open', () => {
+    for (let cx = 0; cx < SUPER_CELL; cx++)
+      for (let cz = 0; cz < SUPER_CELL; cz++) {
+        if (!isLandmarkChunk(5, cx, cz)) continue;
+        const boxes = landmarkBoxes(5, cx, cz);
+        const tower = landmarksNear(5, cx * 256 + 96, cz * 256 + 96, 1)[0];
+        const inside = (x: number, y: number, z: number) =>
+          boxes.some((b) => Math.abs(x - b.x) < b.w / 2 && Math.abs(z - b.z) < b.d / 2 && y > b.y0 && y < b.y1);
+        // Under the arch, centre of the base: open.
+        expect(inside(tower.x, 10, tower.z)).toBe(false);
+        // A corner leg: solid.
+        expect(inside(tower.x + 18, 10, tower.z + 18)).toBe(true);
+        // The main deck edge: solid.
+        expect(inside(tower.x + 9, 145, tower.z)).toBe(true);
+      }
+  });
+
   it('keeps towers 2 km away in view, beyond the streamed chunks (AE5)', () => {
     const near = landmarksNear(5, 0, 0, 4000);
     expect(near.some((l) => Math.hypot(l.x, l.z) > 1500)).toBe(true);

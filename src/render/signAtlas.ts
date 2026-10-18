@@ -77,8 +77,9 @@ export async function createSignAtlas(): Promise<THREE.CanvasTexture> {
   const cells = atlasLayout();
   const allText = cells.map((c) => c.word).join('');
   await Promise.all([document.fonts.load(`900 96px ${ATLAS_FONT}`, allText), document.fonts.load(`700 40px ${ATLAS_FONT}`, 'NEO TOKYO')]);
-  // fonts.load resolves even when the font failed: check, so no tofu atlas is ever shown.
-  if (!document.fonts.check(`900 96px ${ATLAS_FONT}`, allText)) throw new Error('Japanese font unavailable');
+  // fonts.load resolves (empty) even when no face matches: require the bundled face to be loaded.
+  const loaded = [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Noto Sans JP' && f.status === 'loaded');
+  if (!loaded) throw new Error('Japanese font unavailable');
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = ATLAS_SIZE;
   const ctx = canvas.getContext('2d')!;

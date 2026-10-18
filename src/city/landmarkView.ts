@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { cityUniforms } from '../render/materials/cityUniforms';
-import { landmarksNear, TOWER_HEIGHT, type Landmark } from './reserved';
+import { landmarksNear, TOWER_DECKS, TOWER_HEIGHT, type Landmark } from './reserved';
 
 /** Visual profile of the tower: (height, width) pairs, Tokyo Tower style. */
 const PROFILE: [number, number][] = [[0, 44], [60, 24], [140, 14], [230, 7], [290, 3], [TOWER_HEIGHT, 0.6]];
@@ -78,7 +78,11 @@ float band = mod(floor(y / ${(TOWER_HEIGHT / 9).toFixed(1)}), 2.0);
 diffuseColor.rgb = band < 0.5 ? vec3(0.95, 0.28, 0.04) : vec3(0.9, 0.88, 0.85);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 // Floodlit at night, warm orange like the real "Landmark Light".
-totalEmissiveRadiance += vec3(1.6, 0.55, 0.12) * uNight * (0.6 + 0.4 * edge);`);
+totalEmissiveRadiance += vec3(1.6, 0.55, 0.12) * uNight * (0.6 + 0.4 * edge);`)
+      // Landmarks stay readable through the haze (AE5): only part of the fog applies.
+      .replace('#include <fog_fragment>', `vec3 beforeFog = gl_FragColor.rgb;
+#include <fog_fragment>
+gl_FragColor.rgb = mix(beforeFog, gl_FragColor.rgb, 0.55);`);
   };
   m.customProgramCacheKey = () => 'tower-v1';
   return m;
@@ -102,7 +106,7 @@ export class LandmarkView {
     const lattice = new THREE.Mesh(this.geometry, this.material);
     lattice.castShadow = true;
     g.add(lattice);
-    for (const [y, w, h] of [[145, 20, 10], [245, 9, 6]]) {
+    for (const [y, w, h] of TOWER_DECKS) {
       const deck = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), this.deckMaterial);
       deck.position.y = y;
       g.add(deck);

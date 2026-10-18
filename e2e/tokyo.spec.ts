@@ -5,6 +5,6 @@ test('signs use the bundled Japanese font, not pseudo-glyphs (AE2)', async ({ pa
   await page.goto('/?debug=1&hour=22');
   await waitForFrames(page, 5);
   await page.waitForFunction(() => (window as unknown as { __debug: { atlasReady: boolean } }).__debug.atlasReady, null, { timeout: 60_000 });
-  const fontLoaded = await page.evaluate(() => document.fonts.check('900 40px "Noto Sans JP"', 'ラーメン居酒屋'));
+  const fontLoaded = await page.evaluate(() => [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Noto Sans JP' && f.status === 'loaded'));
   expect(fontLoaded).toBe(true);
 });

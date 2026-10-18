@@ -57,10 +57,19 @@ export const TOWER_SECTIONS: { y0: number; y1: number; width: number }[] = [
   { y0: 290, y1: TOWER_HEIGHT, width: 1.6 },
 ];
 
+/** Leg boxes at the corners of the 44 m base, observation decks as rendered (landmarkView). */
+const LEG = { size: 7, height: 42, base: 44 };
+export const TOWER_DECKS: [number, number, number][] = [[145, 20, 10], [245, 9, 6]];
+
 export function landmarkBoxes(seed: number, cx: number, cz: number): Box[] {
   if (!isLandmarkChunk(seed, cx, cz)) return [];
   const l = landmarkAt(cx, cz);
-  return TOWER_SECTIONS.map((s) => ({ x: l.x, z: l.z, w: s.width, d: s.width, y0: s.y0, y1: s.y1 }));
+  // Four legs: the arches between them stay open, as the lattice shader draws them.
+  const off = LEG.base / 2 - LEG.size / 2 - 1;
+  const legs: Box[] = [[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([sx, sz]) => ({ x: l.x + sx * off, z: l.z + sz * off, w: LEG.size, d: LEG.size, y0: 0, y1: LEG.height }));
+  const core = TOWER_SECTIONS.map((s) => ({ x: l.x, z: l.z, w: s.width, d: s.width, y0: Math.max(s.y0, LEG.height), y1: s.y1 }));
+  const decks = TOWER_DECKS.map(([y, w, h]) => ({ x: l.x, z: l.z, w, d: w, y0: y - h / 2, y1: y + h / 2 }));
+  return [...legs, ...core, ...decks];
 }
 
 /** Block (i, j) of a chunk given to a temple, if any: some neon and canal chunks (KTD6). */

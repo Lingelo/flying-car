@@ -72,13 +72,17 @@ export class PlanarReflection {
     const shadowAuto = this.renderer.shadowMap.autoUpdate;
     this.renderer.shadowMap.autoUpdate = false;
     const previous = this.renderer.getRenderTarget();
-    this.renderer.setRenderTarget(this.target);
-    this.renderer.clear();
-    this.renderer.render(scene, this.camera);
-    this.renderer.setRenderTarget(previous);
-    this.renderer.shadowMap.autoUpdate = shadowAuto;
-    hide.forEach((o, i) => (o.visible = visible[i]));
-    cityUniforms.uReflection.value = this.target.texture;
+    try {
+      this.renderer.setRenderTarget(this.target);
+      this.renderer.clear();
+      this.renderer.render(scene, this.camera);
+    } finally {
+      // Whatever happens, leave the renderer and the scene as they were.
+      this.renderer.setRenderTarget(previous);
+      this.renderer.shadowMap.autoUpdate = shadowAuto;
+      hide.forEach((o, i) => (o.visible = visible[i]));
+      cityUniforms.uReflection.value = this.target.texture;
+    }
     cityUniforms.uReflectionOn.value = 1;
   }
 
