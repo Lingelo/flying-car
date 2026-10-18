@@ -1,21 +1,20 @@
 import * as THREE from 'three';
-import { createLoop } from './core/loop';
-import { parseSeed } from './core/seed';
 import { Environment } from './atmosphere/environment';
 import { Rain } from './atmosphere/rain';
 import { SkyRig } from './atmosphere/sky';
 import { CameraRig } from './camera/rig';
-import { createGame } from './game';
+import { createLoop } from './core/loop';
+import { parseSeed } from './core/seed';
+import { createGame, type Game } from './game';
+import { installHeightFog } from './render/fog';
 import { cityUniforms } from './render/materials/cityUniforms';
+import { RenderPipeline } from './render/pipeline';
+import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 
+installHeightFog();
+
+const params = new URLSearchParams(location.search);
 const container = document.getElementById('app')!;
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(container.clientWidth, container.clientHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.AgXToneMapping;
-container.appendChild(renderer.domElement);
-
 const scene = new THREE.Scene();
 const fog = new THREE.FogExp2(0x0b0716, 0.0016);
 scene.fog = fog;
@@ -23,25 +22,35 @@ const camera = new THREE.PerspectiveCamera(65, container.clientWidth / container
 
 const seed = parseSeed(location.search);
 const environment = new Environment(seed);
-const weatherParam = new URLSearchParams(location.search).get('weather');
+const hourParam = Number(params.get('hour'));
+if (params.has('hour') && Number.isFinite(hourParam)) environment.hour = ((hourParam % 24) + 24) % 24;
+const weatherParam = params.get('weather');
 if (weatherParam === 'clear' || weatherParam === 'haze' || weatherParam === 'rain') environment.weather.force(weatherParam);
-const hourParam = Number(new URLSearchParams(location.search).get('hour'));
-if (Number.isFinite(hourParam) && new URLSearchParams(location.search).has('hour')) environment.hour = ((hourParam % 24) + 24) % 24;
+
 const sky = new SkyRig(scene);
 const rain = new Rain();
 scene.add(rain.mesh);
+const pipeline = new RenderPipeline(container, scene, camera, sky.sun);
 
-window.addEventListener('resize', () => {
-  camera.aspect = container.clientWidth / container.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(container.clientWidth, container.clientHeight);
-});
+window.addEventListener('resize', () => pipeline.resize(container.clientWidth, container.clientHeight));
 
-const game = await createGame(scene, renderer.domElement, seed);
-
+const game = await createGame(scene, pipeline.renderer.domElement, seed);
 const rig = new CameraRig(camera, game.world);
+
+let quality: QualityName = 'high';
+function applyQuality(name: QualityName, target: Game = game): void {
+  quality = name;
+  const q = QUALITY[name];
+  pipeline.setQuality(name);
+  target.streamer.setRadius(q.ringRadius, q.lodRadius);
+  target.traffic.setMaxVehicles(q.traffic);
+}
+const qualityParam = params.get('quality') as QualityName | null;
+applyQuality(qualityParam && QUALITY_NAMES.includes(qualityParam) ? qualityParam : 'high');
+
 let t = 0;
 let last = performance.now();
+const focus = new THREE.Vector3();
 createLoop(
   (dt) => {
     t += dt;
@@ -56,20 +65,23 @@ createLoop(
     game.frame();
     if (game.input.pressed('camera')) rig.next();
     rig.update(frameDt, game.car.state, game.input.look);
+
     const p = game.car.state.position;
-    sky.update(environment, new THREE.Vector3(p.x, p.y, p.z), camera, fog);
+    focus.set(p.x, p.y, p.z);
+    sky.update(environment, focus, camera, fog);
     const w = environment.weather.state;
     fog.density = w.fog;
     sky.setCloudiness(w.cloudiness);
     sky.sun.intensity *= 1 - 0.75 * w.cloudiness;
     cityUniforms.uWetness.value = w.wetness;
     cityUniforms.uRain.value = w.rain;
-    rain.update(camera, w.rain);
-    renderer.render(scene, camera);
+    rain.update(camera, w.rain, QUALITY[quality].rain);
+    pipeline.update(sky.dome, environment.hour, w.cloudiness, cityUniforms.uNight.value, focus);
+    pipeline.render(frameDt);
   },
 ).start();
 
 // Diagnostics for automated browser tests only (?debug=1).
-if (new URLSearchParams(location.search).has('debug')) {
-  Object.assign(window, { __game: game, __rig: rig, __env: environment });
+if (params.has('debug')) {
+  Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality });
 }

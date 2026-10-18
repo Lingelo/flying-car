@@ -76,7 +76,24 @@ float puddle;`)
 }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, mix(0.25, 0.03, puddle), uWetness);
-diffuseColor.rgb *= mix(1.0, 0.55, uWetness);`);
+diffuseColor.rgb *= mix(1.0, 0.55, uWetness);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+{
+  // Wet streets mirror the storefront neons: coloured streaks along both kerbs, stronger at
+  // grazing angles (Fresnel). A cheap stand-in for screen-space reflections (KTD10).
+  if (vRoad.z < 0.5) {
+    float halfW = vRoad.x * 0.5;
+    float kerb = exp(-pow((abs(vRoadUv.x) - (halfW - 1.5)) / 1.1, 2.0));
+    // Broken into streaks running along the street, like reflections on rippled water.
+    float streaks = smoothstep(0.35, 0.85, roadNoise(vec2(vRoadUv.x * 2.5, vRoadUv.y * 0.12)));
+    float seg = floor(vRoadUv.y / 9.0 + (vRoadUv.x > 0.0 ? 0.5 : 0.0));
+    float h = roadHash(vec2(seg, vRoadUv.x > 0.0 ? 1.0 : 2.0));
+    vec3 neon = h < 0.25 ? vec3(1.0, 0.16, 0.75) : h < 0.5 ? vec3(0.1, 0.85, 1.0) : h < 0.75 ? vec3(0.55, 0.25, 1.0) : vec3(1.0, 0.62, 0.12);
+    float on = step(0.35, roadHash(vec2(seg, 7.0)));
+    float fresnel = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 3.0);
+    totalEmissiveRadiance += neon * kerb * streaks * on * fresnel * uWetness * mix(0.3, 1.0, puddle) * uNight * 0.8;
+  }
+}`);
   };
   material.customProgramCacheKey = () => 'road-v1';
   return material;

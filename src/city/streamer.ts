@@ -50,12 +50,24 @@ export class ChunkStreamer<P extends ChunkKey, H> {
     private readonly sink: ChunkSink<P, H>,
     private readonly options: StreamerOptions,
   ) {
-    const r = options.radius;
+    this.computeOffsets();
+  }
+
+  private computeOffsets(): void {
+    const r = this.options.radius;
+    this.offsets.length = 0;
     for (let dx = -r; dx <= r; dx++)
       for (let dz = -r; dz <= r; dz++) {
         const d = Math.hypot(dx, dz);
         if (d <= r) this.offsets.push({ dx, dz, d });
       }
+  }
+
+  /** Changes the ring size (quality setting); chunks beyond it unload on the next update. */
+  setRadius(radius: number, lodRadius: number): void {
+    this.options.radius = radius;
+    this.options.lodRadius = lodRadius;
+    this.computeOffsets();
   }
 
   /** Call once per frame with the player position and, optionally, its horizontal heading. */
