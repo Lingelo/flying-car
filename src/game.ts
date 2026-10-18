@@ -18,7 +18,7 @@ import { createCarVisual, type CarVisual } from './vehicle/carModel';
 
 /** Static collision boxes of a chunk: building tiers and skywalks. */
 function chunkBoxes(payload: ChunkPayload): Box[] {
-  return [...payload.chunk.buildings.flatMap((b) => b.tiers), ...payload.chunk.walkways, ...(payload.rail.pillars.length ? [payload.rail.deck, ...payload.rail.pillars] : [])];
+  return [...payload.chunk.buildings.flatMap((b) => b.tiers), ...payload.chunk.walkways, ...(payload.rail.pillars.length ? [payload.rail.deck, ...payload.rail.pillars] : []), ...payload.propBoxes];
 }
 
 /** City view that also feeds the collision world. */

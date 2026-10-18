@@ -3,6 +3,8 @@ import { buildBuildingGeometry } from './buildingMesh';
 import { generateChunk, type Chunk } from './generator';
 import { buildGroundGeometry, type GroundGeometry } from './roadMesh';
 import { buildRailGeometry, railForChunk, type RailSegment } from './rail';
+import { buildStreetLifeGeometry, placeStreetLife, streetLifeBoxes } from './streetLife';
+import type { Box } from './generator';
 import { buildHologramGeometry, buildSignGeometry, buildSteamParticles, placeSigns, placeSteamVents } from './signage';
 import type { ChunkSource } from './streamer';
 
@@ -22,6 +24,10 @@ export interface ChunkPayload {
   rail: RailSegment;
   railStructure: GeometryData;
   railLights: GeometryData;
+  streetProps: GeometryData;
+  streetGlow: GeometryData;
+  /** Extra collision boxes (poles, vending machines). */
+  propBoxes: Box[];
 }
 
 export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPayload {
@@ -30,6 +36,8 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
   const { signs, holograms } = placeSigns(chunk, seed);
   const rail = railForChunk(seed, cx, cz);
   const railGeometry = buildRailGeometry(rail, ox, oz);
+  const life = placeStreetLife(chunk, seed);
+  const lifeGeometry = buildStreetLifeGeometry(life, ox, oz);
   return {
     cx,
     cz,
@@ -43,6 +51,9 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
     rail,
     railStructure: railGeometry.structure,
     railLights: railGeometry.lights,
+    streetProps: lifeGeometry.props,
+    streetGlow: lifeGeometry.glow,
+    propBoxes: streetLifeBoxes(life),
   };
 }
 

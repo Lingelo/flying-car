@@ -7,7 +7,6 @@ export const BLOCK_SIZE = 64;
 export const AVENUE_WIDTH = 24;
 export const STREET_WIDTH = 14;
 const SIDEWALK = 3;
-const PARCEL_GAP = 3;
 /** Altitude bands where skywalks may be built: between the air-traffic tiers (80, 150, 250, 400 m). */
 const WALKWAY_BANDS: [number, number][] = [[24, 60], [98, 132], [170, 232]];
 const WALKWAY_HEIGHT = 4;
@@ -105,7 +104,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
         water.push(block);
         return;
       }
-      for (const parcel of split(block, district.splitDepth, rng)) {
+      for (const parcel of split(block, district.splitDepth, rng, district.parcelGap)) {
         const building = makeBuilding(parcel, district, rng);
         buildings.push(building);
         byBlock[i][j].push(building);
@@ -118,24 +117,24 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   return { cx, cz, origin: { x: ox, z: oz }, district: districtId, buildings, roads, water, walkways };
 }
 
-function split(rect: Rect, depth: number, rng: Rng): Rect[] {
+function split(rect: Rect, depth: number, rng: Rng, gap: number): Rect[] {
   if (depth <= 0 || Math.max(rect.w, rect.d) < 20 || (depth === 1 && rng.chance(0.25))) return [rect];
   const t = rng.range(0.38, 0.62);
   if (rect.w >= rect.d) {
-    const left = rect.w * t - PARCEL_GAP / 2;
-    const right = rect.w - left - PARCEL_GAP;
+    const left = rect.w * t - gap / 2;
+    const right = rect.w - left - gap;
     const xl = rect.x - rect.w / 2;
     return [
-      ...split({ x: xl + left / 2, z: rect.z, w: left, d: rect.d }, depth - 1, rng),
-      ...split({ x: xl + left + PARCEL_GAP + right / 2, z: rect.z, w: right, d: rect.d }, depth - 1, rng),
+      ...split({ x: xl + left / 2, z: rect.z, w: left, d: rect.d }, depth - 1, rng, gap),
+      ...split({ x: xl + left + gap + right / 2, z: rect.z, w: right, d: rect.d }, depth - 1, rng, gap),
     ];
   }
-  const front = rect.d * t - PARCEL_GAP / 2;
-  const back = rect.d - front - PARCEL_GAP;
+  const front = rect.d * t - gap / 2;
+  const back = rect.d - front - gap;
   const zf = rect.z - rect.d / 2;
   return [
-    ...split({ x: rect.x, z: zf + front / 2, w: rect.w, d: front }, depth - 1, rng),
-    ...split({ x: rect.x, z: zf + front + PARCEL_GAP + back / 2, w: rect.w, d: back }, depth - 1, rng),
+    ...split({ x: rect.x, z: zf + front / 2, w: rect.w, d: front }, depth - 1, rng, gap),
+    ...split({ x: rect.x, z: zf + front + gap + back / 2, w: rect.w, d: back }, depth - 1, rng, gap),
   ];
 }
 

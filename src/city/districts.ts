@@ -15,24 +15,26 @@ export interface District {
   /** Base facade tint (linear RGB 0..1). */
   facade: [number, number, number];
   signDensity: number;
+  /** Gap between parcels of a block: narrow alleys in the neon district. */
+  parcelGap: number;
 }
 
 export const DISTRICTS: Record<DistrictId, District> = {
   downtown: {
     heightMin: 110, heightMax: 540, heightSkew: 1.6, splitDepth: 1, maxTiers: 4,
-    waterChance: 0, walkwayChance: 0.45, hues: [0.55, 0.58, 0.83], facade: [0.16, 0.18, 0.22], signDensity: 0.5,
+    waterChance: 0, walkwayChance: 0.45, hues: [0.55, 0.58, 0.83], facade: [0.16, 0.18, 0.22], signDensity: 0.5, parcelGap: 3,
   },
   neon: {
     heightMin: 35, heightMax: 170, heightSkew: 1.3, splitDepth: 2, maxTiers: 2,
-    waterChance: 0, walkwayChance: 0.35, hues: [0.92, 0.83, 0.5, 0.13], facade: [0.12, 0.11, 0.14], signDensity: 1,
+    waterChance: 0, walkwayChance: 0.35, hues: [0.92, 0.83, 0.5, 0.13], facade: [0.12, 0.11, 0.14], signDensity: 1, parcelGap: 5,
   },
   canals: {
     heightMin: 22, heightMax: 95, heightSkew: 1.2, splitDepth: 2, maxTiers: 2,
-    waterChance: 0.3, walkwayChance: 0.15, hues: [0.47, 0.6, 0.75], facade: [0.15, 0.15, 0.16], signDensity: 0.6,
+    waterChance: 0.3, walkwayChance: 0.15, hues: [0.47, 0.6, 0.75], facade: [0.15, 0.15, 0.16], signDensity: 0.6, parcelGap: 3,
   },
   industrial: {
     heightMin: 12, heightMax: 48, heightSkew: 1.5, splitDepth: 1, maxTiers: 1,
-    waterChance: 0, walkwayChance: 0, hues: [0.08, 0.12, 0.0], facade: [0.2, 0.18, 0.16], signDensity: 0.25,
+    waterChance: 0, walkwayChance: 0, hues: [0.08, 0.12, 0.0], facade: [0.2, 0.18, 0.16], signDensity: 0.25, parcelGap: 3,
   },
 };
 

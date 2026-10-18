@@ -30,6 +30,8 @@ export interface ChunkHandle {
   steam: THREE.Points;
   railStructure: THREE.Mesh;
   railLights: THREE.Mesh;
+  streetProps: THREE.Mesh;
+  streetGlow: THREE.Mesh;
   full?: THREE.BufferGeometry;
   lod?: THREE.BufferGeometry;
 }
@@ -49,6 +51,7 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     steam: createSteamMaterial(),
     rail: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0.1 }),
     railLights: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+    props: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.2, side: THREE.DoubleSide }),
   };
   private readonly pool = new Pool<ChunkHandle>(() => {
     const group = new THREE.Group();
@@ -70,6 +73,8 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
       holograms: mesh(this.materials.hologram, false),
       railStructure: mesh(this.materials.rail, true),
       railLights: mesh(this.materials.railLights, false),
+      streetProps: mesh(this.materials.props, false),
+      streetGlow: mesh(this.materials.railLights, false),
       steam: (() => {
         const p = new THREE.Points(EMPTY, this.materials.steam);
         p.matrixAutoUpdate = false;
@@ -101,6 +106,8 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     h.holograms.geometry = toBufferGeometry(payload.holograms);
     h.railStructure.geometry = toBufferGeometry(payload.railStructure);
     h.railLights.geometry = toBufferGeometry(payload.railLights);
+    h.streetProps.geometry = toBufferGeometry(payload.streetProps);
+    h.streetGlow.geometry = toBufferGeometry(payload.streetGlow);
     h.holograms.renderOrder = 2;
     const steam = new THREE.BufferGeometry();
     const interleaved = new THREE.InterleavedBuffer(payload.steam, 4);
@@ -117,7 +124,7 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     this.root.remove(h.group);
     h.full?.dispose();
     h.lod?.dispose();
-    for (const m of [h.roads, h.ground, h.water, h.signs, h.holograms, h.steam, h.railStructure, h.railLights]) {
+    for (const m of [h.roads, h.ground, h.water, h.signs, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow]) {
       m.geometry.dispose();
       m.geometry = EMPTY;
     }
