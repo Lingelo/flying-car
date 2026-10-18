@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCK_SIZE, CHUNK_SIZE, generateChunk } from './generator';
-import { isLandmarkChunk, landmarkBoxes, landmarksNear, SUPER_CELL, templeBlock } from './reserved';
+import { isLandmarkChunk, landmarkBoxes, landmarksNear, templeBlock } from './reserved';
+
+/** Chunks searched for the tower: it stands 1.2 to 2.2 km from the start. */
+const SEARCH = 8;
 import { buildTemple } from './temples';
 
 const blockOf = (x: number, z: number, cx: number, cz: number) => ({
@@ -9,18 +12,21 @@ const blockOf = (x: number, z: number, cx: number, cz: number) => ({
 });
 
 describe('Tokyo landmarks', () => {
-  it('raises exactly one tower per 8 × 8 super-cell, always in the same place', () => {
-    for (const [sx, sz] of [[0, 0], [1, -2], [-3, 4]]) {
+  it('raises a single tower in the whole city, a short flight from the start', () => {
+    for (const seed of [5, 42, 2077]) {
       let n = 0;
-      for (let x = 0; x < SUPER_CELL; x++)
-        for (let z = 0; z < SUPER_CELL; z++) if (isLandmarkChunk(5, sx * SUPER_CELL + x, sz * SUPER_CELL + z)) n++;
+      for (let x = -40; x < 40; x++) for (let z = -40; z < 40; z++) if (isLandmarkChunk(seed, x, z)) n++;
       expect(n).toBe(1);
+      const [tower] = landmarksNear(seed, 0, 0, 3000);
+      expect(Math.hypot(tower.x, tower.z)).toBeGreaterThan(1200);
+      expect(Math.hypot(tower.x, tower.z)).toBeLessThan(2200);
+      expect(landmarksNear(seed, 20000, 0, 4500)).toHaveLength(0);
     }
   });
 
   it('keeps the tower block free of buildings and gives the tower collision boxes', () => {
-    for (let cx = 0; cx < SUPER_CELL; cx++)
-      for (let cz = 0; cz < SUPER_CELL; cz++) {
+    for (let cx = 0; cx < SEARCH; cx++)
+      for (let cz = 0; cz < SEARCH; cz++) {
         if (!isLandmarkChunk(5, cx, cz)) continue;
         const chunk = generateChunk(5, cx, cz);
         for (const b of chunk.buildings) {
@@ -34,8 +40,8 @@ describe('Tokyo landmarks', () => {
   });
 
   it('collides with the legs and decks but leaves the arches open', () => {
-    for (let cx = 0; cx < SUPER_CELL; cx++)
-      for (let cz = 0; cz < SUPER_CELL; cz++) {
+    for (let cx = 0; cx < SEARCH; cx++)
+      for (let cz = 0; cz < SEARCH; cz++) {
         if (!isLandmarkChunk(5, cx, cz)) continue;
         const boxes = landmarkBoxes(5, cx, cz);
         const tower = landmarksNear(5, cx * 256 + 96, cz * 256 + 96, 1)[0];

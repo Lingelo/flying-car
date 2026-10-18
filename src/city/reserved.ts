@@ -5,19 +5,20 @@ import type { DistrictId } from './districts';
 // Kept free of generator imports: the generator itself asks which blocks are reserved.
 const CHUNK = 256;
 const BLOCK = 64;
-/** Landmark towers: one per SUPER_CELL × SUPER_CELL chunks (KTD5). */
-export const SUPER_CELL = 8;
 export const TOWER_HEIGHT = 333;
 
-const superChunk = (seed: number, sx: number, sz: number) => {
-  const h = hash3(seed ^ 0x70e3, sx, sz);
-  // Keep away from the super-cell edges so towers never cluster.
-  return { cx: sx * SUPER_CELL + 2 + (h % 4), cz: sz * SUPER_CELL + 2 + ((h >>> 8) % 4) };
+/**
+ * The city has a single landmark tower, a monument: a short flight (1.2 to 2.2 km) from the start,
+ * placed by the seed.
+ */
+const landmarkChunk = (seed: number) => {
+  const h = hash3(seed ^ 0x70e3, 0, 0);
+  return { cx: 4 + (h % 3), cz: 2 + ((h >>> 8) % 3) };
 };
 
 export function isLandmarkChunk(seed: number, cx: number, cz: number): boolean {
-  const s = superChunk(seed, Math.floor(cx / SUPER_CELL), Math.floor(cz / SUPER_CELL));
-  return s.cx === cx && s.cz === cz;
+  const l = landmarkChunk(seed);
+  return l.cx === cx && l.cz === cz;
 }
 
 export interface Landmark {
@@ -31,21 +32,11 @@ export interface Landmark {
 /** Tower centred on block (1, 1) of its chunk, whose buildings the generator leaves out. */
 const landmarkAt = (cx: number, cz: number): Landmark => ({ x: cx * CHUNK + 96, z: cz * CHUNK + 96, height: TOWER_HEIGHT, cx, cz });
 
-/** Towers within `radius` of (x, z), streamed independently of the chunks so they show from afar. */
+/** The tower when it lies within `radius` of (x, z), streamed independently of the chunks. */
 export function landmarksNear(seed: number, x: number, z: number, radius: number): Landmark[] {
-  const span = SUPER_CELL * CHUNK;
-  const out: Landmark[] = [];
-  const s0x = Math.floor((x - radius) / span);
-  const s1x = Math.floor((x + radius) / span);
-  const s0z = Math.floor((z - radius) / span);
-  const s1z = Math.floor((z + radius) / span);
-  for (let sx = s0x; sx <= s1x; sx++)
-    for (let sz = s0z; sz <= s1z; sz++) {
-      const c = superChunk(seed, sx, sz);
-      const l = landmarkAt(c.cx, c.cz);
-      if (Math.hypot(l.x - x, l.z - z) <= radius) out.push(l);
-    }
-  return out;
+  const c = landmarkChunk(seed);
+  const l = landmarkAt(c.cx, c.cz);
+  return Math.hypot(l.x - x, l.z - z) <= radius ? [l] : [];
 }
 
 /** Stepped core boxes approximating the lattice tower for collisions. */
