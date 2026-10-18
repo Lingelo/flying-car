@@ -2,6 +2,9 @@ import { QuadBuilder, type GeometryData } from '../render/geometryData';
 import { AVENUE_WIDTH, BLOCK_SIZE, CHUNK_SIZE, STREET_WIDTH, type Chunk } from './generator';
 
 const ROAD_Y = 0.05;
+/** Height and width of the concrete kerbs lining every street. */
+export const KERB_HEIGHT = 0.14;
+const KERB_WIDTH = 0.22;
 const LINES = Array.from({ length: CHUNK_SIZE / BLOCK_SIZE + 1 }, (_, i) => ({
   at: i * BLOCK_SIZE,
   width: i % (CHUNK_SIZE / BLOCK_SIZE) === 0 ? AVENUE_WIDTH : STREET_WIDTH,
@@ -66,6 +69,44 @@ export function buildGroundGeometry(chunk: Chunk): GroundGeometry {
   }
 
   const ground = new QuadBuilder();
+  // Kerbs along both edges of each street segment between intersections (info.x = 1).
+  const kerb = (x0: number, z0: number, x1: number, z1: number, along: 'x' | 'z', facing: 1 | -1) => {
+    const h = KERB_HEIGHT;
+    const info: [number, number, number, number] = [1, 0, 0, 0];
+    const len = along === 'z' ? z1 - z0 : x1 - x0;
+    const uv: [number, number][] = [[0, 0], [len, 0], [len, 0.3], [0, 0.3]];
+    ground.quad([[x0, h, z1], [x1, h, z1], [x1, h, z0], [x0, h, z0]], up, uv, white, info);
+    // Faces towards the road (`facing`) and towards the sidewalk.
+    for (const side of [facing, -facing]) {
+      if (along === 'z') {
+        const x = side > 0 ? x1 : x0;
+        const quad: [number, number, number][] = side > 0 ? [[x, 0, z1], [x, 0, z0], [x, h, z0], [x, h, z1]] : [[x, 0, z0], [x, 0, z1], [x, h, z1], [x, h, z0]];
+        ground.quad(quad, [side, 0, 0], uv, white, info);
+      } else {
+        const z = side > 0 ? z1 : z0;
+        const quad: [number, number, number][] = side > 0 ? [[x0, 0, z], [x1, 0, z], [x1, h, z], [x0, h, z]] : [[x1, 0, z], [x0, 0, z], [x0, h, z], [x1, h, z]];
+        ground.quad(quad, [0, 0, side], uv, white, info);
+      }
+    }
+  };
+  for (let i = 0; i < LINES.length; i++) {
+    const line = LINES[i];
+    const hw = line.width / 2;
+    for (let k = 0; k < LINES.length - 1; k++) {
+      const from = LINES[k].at + LINES[k].width / 2;
+      const to = LINES[k + 1].at - LINES[k + 1].width / 2;
+      for (const s of [-1, 1] as const) {
+        const inner = line.at + s * hw;
+        const outer = inner + s * KERB_WIDTH;
+        const lo = Math.min(inner, outer);
+        const hi = Math.max(inner, outer);
+        if (lo >= 0 && hi <= CHUNK_SIZE) {
+          kerb(lo, from, hi, to, 'z', s > 0 ? -1 : 1);
+          kerb(from, lo, to, hi, 'x', s > 0 ? -1 : 1);
+        }
+      }
+    }
+  }
   ground.quad(
     [[0, 0, CHUNK_SIZE], [CHUNK_SIZE, 0, CHUNK_SIZE], [CHUNK_SIZE, 0, 0], [0, 0, 0]],
     up,

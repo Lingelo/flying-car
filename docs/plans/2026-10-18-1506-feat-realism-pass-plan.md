@@ -207,7 +207,7 @@ gardant la ville infinie, déterministe et fluide.
 - **Goal:** asphalte, dalles, bordures, plaques.
 - **Covers:** R9
 - **Depends on:** U1
-- **Files:** `src/render/materials/road.ts`, `src/city/roadMesh.ts`, `src/city/buildingMesh.test.ts`
+- **Files:** `src/render/materials/road.ts`, `src/city/roadMesh.ts`, `src/city/roadMesh.test.ts`, `src/render/textures.ts`, `src/main.ts`
 - **Approach:** KTD1, bordures en géométrie.
 - **Evidence:** test first (bordures le long des trottoirs, hors chaussée) ; captures.
 - **Verification:** `npm test -- src/city`

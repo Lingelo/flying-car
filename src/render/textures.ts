@@ -27,7 +27,7 @@ export async function loadTextureSet(id: TextureId, load: Loader = defaultLoader
     for (const t of [diff, nor, arm]) {
       if (!(t instanceof THREE.Texture)) continue;
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.anisotropy = 8;
+      t.anisotropy = 16;
     }
     if (diff instanceof THREE.Texture) diff.colorSpace = THREE.SRGBColorSpace;
     return { diff, nor, arm, metres: entry.metres };
