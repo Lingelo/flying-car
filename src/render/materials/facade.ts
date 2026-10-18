@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ATLAS_GLSL } from '../signAtlas';
 import { FLOOR_HEIGHT } from '../../city/buildingMesh';
 import manifest from '../textureManifest.json';
 import { loadTextureSet, type TextureId } from '../textures';
@@ -25,6 +26,9 @@ const vec3 = (c: number[]) => `vec3(${c.map((v) => v.toFixed(3)).join(',')})`;
 /** Wall textures shared by every facade, filled once the CC0 maps are loaded. */
 export const facadeUniforms: Record<string, { value: unknown }> = {
   uFacadeReady: { value: 0 },
+  /** Japanese sign atlas for the shop sign bands, once its font is loaded. */
+  uShopAtlas: { value: null },
+  uShopAtlasReady: { value: 0 },
   ...Object.fromEntries(FACADE_TEXTURES.flatMap((_, i) => [[`uWall${i}`, { value: null }], [`uWallN${i}`, { value: null }]])),
 };
 
@@ -78,6 +82,9 @@ uniform float uNight;
 uniform float uWetness;
 uniform float uTime;
 uniform float uFacadeReady;
+uniform sampler2D uShopAtlas;
+uniform float uShopAtlasReady;
+${ATLAS_GLSL}
 ${samplerDecls}
 varying vec2 vFacadeUv;
 varying vec4 vInfo;
@@ -198,10 +205,97 @@ float facadeRough;`,
       facadeEmissive += mix(inside * (1.0 - fres * 0.85) * open, farGlow * windowMask, far);
       albedo = mix(albedo, vec3(0.015, 0.02, 0.025), windowMask);
     } else if (style != 4) {
-      // Storefront band at street level.
-      vec3 neon = neonColor(seed);
-      float shop = step(0.6, fract(vFacadeUv.x / 9.0 + seed)) * step(1.2, vFacadeUv.y) * (1.0 - step(3.6, vFacadeUv.y));
-      facadeEmissive += neon * shop * mix(0.3, 2.2, uNight) * (0.7 + 0.3 * sin(uTime * 3.0 + seed * 40.0));
+      // Street level: bays of shops between piers. Each bay is a lit shopfront (kick plate, glazing
+      // with mullions over a deep interior-mapped shop, a backlit sign band above), a closed roller
+      // shutter, or a glazed entrance lobby.
+      float bw = 4.0 + floor(fract(seed * 7.3) * 3.0);
+      float bayId = floor(vFacadeUv.x / bw);
+      float bx = vFacadeUv.x - bayId * bw;
+      float y = vFacadeUv.y;
+      float kind = facadeHash(vec2(bayId, seed * 977.0));
+      float pier = 0.35;
+      vec2 sfw = fwidth(vFacadeUv);
+      float inBay = smoothstep(pier - sfw.x, pier + sfw.x, bx);
+      float glassTop = 3.0;
+      float signLo = 3.15;
+      float signHi = 4.05;
+      // Piers and the wall above the sign keep the wall material; the shop zone is framed in black.
+      float shopZone = inBay * step(y, signHi);
+      albedo = mix(albedo, albedo * 0.7, inBay * step(signHi, y) * step(y, signHi + 0.12));
+      vec3 lamp = fract(kind * 31.0) < 0.55 ? vec3(1.0, 0.86, 0.66) : fract(kind * 31.0) < 0.85 ? vec3(0.82, 0.92, 1.0) : neonColor(kind);
+      if (shopZone > 0.5) {
+        albedo = vec3(0.025, 0.026, 0.03);
+        facadeRough = 0.4;
+        float sx = bx - pier;
+        float sw = bw - pier;
+        // Sign band: a lightbox with rows of blocky characters, lit at night.
+        if (y > signLo) {
+          float sy = (y - signLo) / (signHi - signLo);
+          // Shop name from the Japanese atlas (a banner cell), or blocky pseudo-glyphs until it loads.
+          float glyph;
+          vec2 su = vec2((sx - 0.3) / (sw - 0.6), (sy - 0.1) / 0.8);
+          float inside = step(0.0, su.x) * step(su.x, 1.0) * step(0.0, su.y) * step(su.y, 1.0);
+          if (uShopAtlasReady > 0.5) {
+            glyph = inside * smoothstep(0.35, 0.6, atlasText(uShopAtlas, atlasCell(1.0, fract(kind * 71.0 + seed * 13.0)), su).r);
+          } else {
+            vec2 g = vec2(sx / 0.42, (sy - 0.18) / 0.64);
+            glyph = inside * step(0.0, g.y) * step(g.y, 1.0) * step(0.45, facadeHash(floor(vec2(g.x * 3.0, g.y * 3.0)) + kind * 53.0)) * step(0.15, fract(g.x)) * step(fract(g.x), 0.9);
+          }
+          bool whiteBox = fract(kind * 13.0) < 0.4;
+          vec3 boxCol = whiteBox ? vec3(0.95, 0.93, 0.88) : neonColor(kind * 3.0);
+          vec3 inkCol = whiteBox ? neonColor(kind * 5.0) * 0.25 : vec3(1.0, 0.97, 0.9);
+          float edge = step(sy, 0.06) + step(0.94, sy);
+          vec3 sign = mix(boxCol * (whiteBox ? 1.0 : 0.35), inkCol, glyph);
+          albedo = mix(sign * 0.6, vec3(0.03), edge);
+          facadeEmissive += sign * (1.0 - edge) * mix(0.15, 1.6, uNight);
+        } else if (y > glassTop) {
+          albedo = vec3(0.06, 0.065, 0.07);
+        } else if (kind < 0.6 || kind > 0.82) {
+          bool lobby = kind > 0.82;
+          float kick = lobby ? 0.05 : 0.38;
+          if (y < kick) {
+            albedo = vec3(0.04, 0.04, 0.045);
+          } else {
+            // Glazing: mullions every ~1.5 m and a transom bar; the shop behind in perspective.
+            float panes = max(1.0, floor(sw / 1.5));
+            float px = fract(sx / sw * panes);
+            float mull = 1.0 - step(0.025, px) * step(px, 0.975);
+            float transom = step(abs(y - 2.45), 0.035);
+            float frame = max(mull, transom);
+            vec3 V = normalize(vFacadeWorld - cameraPosition);
+            vec3 N = normalize(vWallNormal);
+            vec3 T = vec3(N.z, 0.0, -N.x);
+            vec3 dir = normalize(vec3(dot(V, T), V.y, -dot(V, N)));
+            float lightPanel;
+            vec2 entry = vec2(sx, y - kick);
+            vec3 room = interiorRoom(entry, dir, vec3(sw, glassTop - kick + 0.4, lobby ? 7.0 : 4.5), kind, lightPanel);
+            // Shelves of goods: bright horizontal bands with dotted products.
+            float shelves = step(0.7, fract((y - kick) / 0.45)) * (0.6 + 0.4 * step(0.5, fract(sx * 3.1 + kind * 7.0)));
+            vec3 goods = mix(room, room * 1.6 + neonColor(kind * 9.0 + floor(sx * 3.1)) * 0.25, shelves * (lobby ? 0.0 : 1.0));
+            bool lit = facadeHash(vec2(bayId * 3.0 + 1.0, seed * 131.0)) < mix(0.35, 0.92, uNight);
+            float fres = pow(1.0 - abs(dot(V, N)), 4.0);
+            vec3 inside = lit ? goods * lamp * mix(0.8, 2.2, uNight) + lamp * lightPanel * 3.0 : goods * 0.04;
+            facadeEmissive += inside * (1.0 - fres * 0.8) * (1.0 - frame);
+            albedo = mix(vec3(0.01, 0.012, 0.015), vec3(0.05, 0.05, 0.055), frame);
+            windowMask = 1.0 - frame;
+            // Door: a darker double leaf with a bright push bar, centred in lobbies.
+            if (lobby && abs(sx - sw * 0.5) < 0.9 && y < 2.3) {
+              float bar = step(abs(y - 1.05), 0.02) * step(0.12, abs(sx - sw * 0.5));
+              facadeEmissive += vec3(0.8) * bar * mix(0.2, 1.0, uNight);
+            }
+          }
+        } else {
+          // Closed roller shutter: corrugated steel with a bottom rail and some grime.
+          float rib = sin((y / 0.075) * 6.2832);
+          facadeTangentNormal = normalize(vec3(0.0, rib * 0.35, 1.0));
+          float grime = 0.75 + 0.25 * facadeNoise(vec2(sx * 2.0, y * 0.6) + kind * 30.0);
+          albedo = vec3(0.32, 0.33, 0.34) * grime * (0.85 + 0.15 * rib);
+          albedo = mix(albedo, vec3(0.05), step(y, 0.12));
+          facadeRough = 0.55;
+          // A small lit plate and the glow of a street lamp across the shutter at night.
+          facadeEmissive += lamp * 0.04 * uNight;
+        }
+      }
     }
 
     // Neon outline under the roof of some buildings, and glowing skywalks.
@@ -244,6 +338,6 @@ metalnessFactor = mix(metalnessFactor, 0.85, windowMask);`,
 totalEmissiveRadiance += facadeEmissive;`,
       );
   };
-  material.customProgramCacheKey = () => 'facade-v3';
+  material.customProgramCacheKey = () => 'facade-v4';
   return material;
 }

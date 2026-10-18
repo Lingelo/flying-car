@@ -40,13 +40,37 @@ describe('street life', () => {
       const { lanterns } = placeStreetLife(c, 2077);
       count += lanterns.length;
       for (const l of lanterns) {
-        expect(l.y).toBeGreaterThan(2.5);
+        expect(l.y).toBeGreaterThan(2.0);
         expect(l.y).toBeLessThan(5);
         for (const b of c.buildings) expect(insideBox(l, b.tiers[0], 0.2)).toBe(false);
       }
     }
     expect(count).toBeGreaterThan(40);
     for (const c of findChunks('industrial')) expect(placeStreetLife(c, 2077).lanterns).toHaveLength(0);
+  });
+
+  it('shelters shopfronts under canopies above head height, against the facade and off the road', () => {
+    let count = 0;
+    for (const c of findChunks('neon').concat(findChunks('downtown'))) {
+      for (const k of placeStreetLife(c, 2077).canopies) {
+        count++;
+        expect(k.y).toBeGreaterThan(2.6);
+        expect(k.y).toBeLessThan(3.2);
+        const front = { x: k.x + k.nx * k.depth, z: k.z + k.nz * k.depth };
+        expect(onRoad(front, c)).toBe(false);
+        // The back edge touches its own wall: just outside the building, not inside any.
+        for (const b of c.buildings) expect(insideBox({ x: k.x + k.nx * 0.05, y: k.y, z: k.z + k.nz * 0.05 }, b.tiers[0])).toBe(false);
+      }
+    }
+    expect(count).toBeGreaterThan(10);
+  });
+
+  it('hangs lanterns from the front edge of a canopy', () => {
+    for (const c of findChunks('neon')) {
+      const life = placeStreetLife(c, 2077);
+      for (const l of life.lanterns)
+        expect(life.canopies.some((k) => Math.abs((l.x - k.x) * k.nx + (l.z - k.z) * k.nz - (k.depth - 0.15)) < 0.01)).toBe(true);
+    }
   });
 
   it('plants utility poles on sidewalks, with cables from pole to pole', () => {

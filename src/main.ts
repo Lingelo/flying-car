@@ -20,7 +20,7 @@ import { hasRailLine } from './city/rail';
 import { LandmarkView } from './city/landmarkView';
 import { landmarksNear } from './city/reserved';
 import { signUniforms } from './render/materials/hologram';
-import { loadFacadeTextures } from './render/materials/facade';
+import { facadeUniforms, loadFacadeTextures } from './render/materials/facade';
 import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 import { loadSettings, saveSettings, type Settings } from './settings/store';
@@ -64,6 +64,8 @@ void createSignAtlas()
     signUniforms.uAtlas.value = atlas.fill;
     signUniforms.uTubeAtlas.value = atlas.tube;
     signUniforms.uAtlasReady.value = 1;
+    facadeUniforms.uShopAtlas.value = atlas.fill;
+    facadeUniforms.uShopAtlasReady.value = 1;
   })
   .catch((error) => console.warn('sign atlas unavailable, keeping pseudo-glyphs', error));
 
