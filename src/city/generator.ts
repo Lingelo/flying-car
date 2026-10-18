@@ -1,6 +1,7 @@
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 import { Rng, hash3 } from '../core/random';
 import { DISTRICTS, districtFor, type District, type DistrictId } from './districts';
+import { reservedBlocks } from './reserved';
 
 export const CHUNK_SIZE = 256;
 export const BLOCK_SIZE = 64;
@@ -80,6 +81,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
   const districtId = districtAt(seed, cx, cz);
   const district = DISTRICTS[districtId];
   const rng = new Rng(hash3(seed, cx, cz));
+  const reserved = reservedBlocks(seed, cx, cz, districtId);
 
   const roads: Road[] = [];
   for (const line of LINES) {
@@ -100,6 +102,8 @@ export function generateChunk(seed: number, cx: number, cz: number): Chunk {
       const z0 = lz.at + lz.width / 2 + SIDEWALK;
       const z1 = lz.at + BLOCK_SIZE - lineWidth(lz.at + BLOCK_SIZE) / 2 - SIDEWALK;
       const block: Rect = { x: ox + (x0 + x1) / 2, z: oz + (z0 + z1) / 2, w: x1 - x0, d: z1 - z0 };
+      // Landmark tower or temple grounds.
+      if (reserved.has(`${i},${j}`)) return;
       if (rng.chance(district.waterChance)) {
         water.push(block);
         return;

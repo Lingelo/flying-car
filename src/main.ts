@@ -17,6 +17,8 @@ import { RenderPipeline } from './render/pipeline';
 import { PlanarReflection } from './render/reflection';
 import { createSignAtlas } from './render/signAtlas';
 import { hasRailLine } from './city/rail';
+import { LandmarkView } from './city/landmarkView';
+import { landmarksNear } from './city/reserved';
 import { signUniforms } from './render/materials/hologram';
 import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
@@ -31,7 +33,8 @@ const container = document.getElementById('app')!;
 const scene = new THREE.Scene();
 const fog = new THREE.FogExp2(0x0b0716, 0.0016);
 scene.fog = fog;
-const camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.3, 3000);
+// Far plane wide enough for the landmark towers on the horizon.
+const camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.3, 6000);
 
 const seed = parseSeed(location.search);
 const environment = new Environment(seed);
@@ -60,6 +63,8 @@ void createSignAtlas()
   })
   .catch((error) => console.warn('sign atlas unavailable, keeping pseudo-glyphs', error));
 
+const landmarks = new LandmarkView(seed);
+scene.add(landmarks.group);
 const rig = new CameraRig(camera, game.world);
 const audio = new AudioSystem(camera);
 
@@ -198,6 +203,7 @@ createLoop(
     const p = view.position;
     focus.set(p.x, p.y, p.z);
     sky.update(environment, focus, camera, fog);
+    landmarks.update(p.x, p.z, t, cityUniforms.uNight.value);
     const w = environment.weather.state;
     fog.density = w.fog;
     sky.setCloudiness(w.cloudiness);
@@ -246,5 +252,5 @@ if (params.has('debug')) {
       atlasReady: signUniforms.uAtlasReady.value === 1,
     }),
   });
-  Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio, __hud: hud, __menu: menu, __photo: photo, __city: { hasRailLine: (cz: number) => hasRailLine(seed, cz) } });
+  Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio, __hud: hud, __menu: menu, __photo: photo, __city: { hasRailLine: (cz: number) => hasRailLine(seed, cz), landmarksNear: (x: number, z: number, r: number) => landmarksNear(seed, x, z, r) } });
 }

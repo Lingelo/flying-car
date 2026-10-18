@@ -32,6 +32,8 @@ export interface ChunkHandle {
   railLights: THREE.Mesh;
   streetProps: THREE.Mesh;
   streetGlow: THREE.Mesh;
+  templeProps: THREE.Mesh;
+  templeGlow: THREE.Mesh;
   full?: THREE.BufferGeometry;
   lod?: THREE.BufferGeometry;
 }
@@ -75,6 +77,8 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
       railLights: mesh(this.materials.railLights, false),
       streetProps: mesh(this.materials.props, false),
       streetGlow: mesh(this.materials.railLights, false),
+      templeProps: mesh(this.materials.props, true),
+      templeGlow: mesh(this.materials.railLights, false),
       steam: (() => {
         const p = new THREE.Points(EMPTY, this.materials.steam);
         p.matrixAutoUpdate = false;
@@ -108,6 +112,8 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     h.railLights.geometry = toBufferGeometry(payload.railLights);
     h.streetProps.geometry = toBufferGeometry(payload.streetProps);
     h.streetGlow.geometry = toBufferGeometry(payload.streetGlow);
+    h.templeProps.geometry = toBufferGeometry(payload.templeProps);
+    h.templeGlow.geometry = toBufferGeometry(payload.templeGlow);
     h.holograms.renderOrder = 2;
     const steam = new THREE.BufferGeometry();
     const interleaved = new THREE.InterleavedBuffer(payload.steam, 4);
@@ -124,7 +130,7 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     this.root.remove(h.group);
     h.full?.dispose();
     h.lod?.dispose();
-    for (const m of [h.roads, h.ground, h.water, h.signs, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow]) {
+    for (const m of [h.roads, h.ground, h.water, h.signs, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow, h.templeProps, h.templeGlow]) {
       m.geometry.dispose();
       m.geometry = EMPTY;
     }
