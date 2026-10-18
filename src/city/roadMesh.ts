@@ -8,7 +8,7 @@ const LINES = Array.from({ length: CHUNK_SIZE / BLOCK_SIZE + 1 }, (_, i) => ({
 }));
 
 export interface GroundGeometry {
-  /** Street segments and intersections; `info` = (width, avenue, intersection, axis). */
+  /** Street segments and intersections; `info` = (width, avenue, intersection, axis or 2 = scramble crossing). */
   roads: GeometryData;
   ground: GeometryData;
   water: GeometryData;
@@ -21,6 +21,8 @@ const white: [number, number, number] = [1, 1, 1];
 export function buildGroundGeometry(chunk: Chunk): GroundGeometry {
   const roads = new QuadBuilder();
   const { x: ox, z: oz } = chunk.origin;
+  // Shibuya-style diagonal crossing where two avenues meet in the busy districts.
+  const scramble = chunk.district === 'neon' || chunk.district === 'downtown';
 
   for (let i = 0; i < LINES.length - 1; i++) {
     const line = LINES[i];
@@ -58,7 +60,7 @@ export function buildGroundGeometry(chunk: Chunk): GroundGeometry {
         up,
         [[-hw, ha], [hw, ha], [hw, -ha], [-hw, -ha]],
         white,
-        [line.width, avenue, 1, 0],
+        [line.width, avenue, 1, scramble && i === 0 && k === 0 ? 2 : 0],
       );
     }
   }

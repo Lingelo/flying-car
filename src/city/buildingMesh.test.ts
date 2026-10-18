@@ -81,3 +81,26 @@ describe('buildGroundGeometry', () => {
     expect(intersections).toBe(16 * 4);
   });
 });
+
+describe('scramble crossings', () => {
+  const scrambles = (chunk: Chunk) => {
+    const { roads } = buildGroundGeometry(chunk);
+    let n = 0;
+    for (let v = 0; v < roads.position.length / 3; v++) if (roads.info[v * 4 + 3] === 2) n++;
+    return n / 4;
+  };
+  const find = (district: Chunk['district']) => {
+    for (let x = -15; x < 15; x++) for (let z = -15; z < 15; z++) {
+      const c = generateChunk(2077, x, z);
+      if (c.district === district) return c;
+    }
+    throw new Error(`no ${district} chunk`);
+  };
+
+  it('marks the avenue crossing of neon and downtown chunks only', () => {
+    expect(scrambles(find('neon'))).toBe(1);
+    expect(scrambles(find('downtown'))).toBe(1);
+    expect(scrambles(find('industrial'))).toBe(0);
+    expect(scrambles(find('canals'))).toBe(0);
+  });
+});

@@ -66,6 +66,14 @@ float puddle;`)
     // Zebra crossings on the edges of intersections.
     float zebra = step(0.5, fract(u / 1.2)) * (1.0 - step(2.5, abs(abs(v) - (halfW - 2.5))));
     paint += zebra * 0.8;
+    if (vRoad.w > 1.5) {
+      // Scramble crossing: zebra bands along both diagonals.
+      float d1 = abs(u - v) * 0.7071;
+      float d2 = abs(u + v) * 0.7071;
+      float s1 = step(0.5, fract((u + v) * 0.7071 / 1.2)) * (1.0 - step(2.2, d1));
+      float s2 = step(0.5, fract((u - v) * 0.7071 / 1.2)) * (1.0 - step(2.2, d2));
+      paint += max(s1, s2) * 0.8 * step(abs(v), halfW - 5.0) * step(abs(u), halfW - 5.0);
+    }
   }
   paint = clamp(paint, 0.0, 1.0);
   float grain = roadNoise(vRoadWorld.xz * 2.0) * 0.06;
