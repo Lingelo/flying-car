@@ -58,6 +58,13 @@ export class Radio {
     if (this.on && tracks.length) this.startCurrent();
   }
 
+  /** Adds tracks at the end, leaving the current track and its playback alone. */
+  appendTracks(tracks: Track[]): void {
+    const wasEmpty = !this.tracks.length;
+    this.tracks = [...this.tracks, ...tracks];
+    if (wasEmpty) this.index = 0;
+  }
+
   toggle(): void {
     if (!this.tracks.length) return;
     this.on = !this.on;

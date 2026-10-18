@@ -8,6 +8,7 @@ test('flying straight for 15 km keeps the city ahead and memory bounded (AE5)', 
   await waitForFrames(page, 10);
   const chunks = 60;
   let maxActive = 0;
+  const geometries: number[] = [];
   for (let i = 0; i < chunks; i++) {
     await page.evaluate(() => {
       const g = (window as unknown as { __game: { car: { state: { mode: string; deploy: number; position: { x: number; y: number }; velocity: { x: number; y: number; z: number } } } } }).__game;
@@ -20,7 +21,9 @@ test('flying straight for 15 km keeps the city ahead and memory bounded (AE5)', 
     });
     const start = (await debugState(page)).frames;
     await page.waitForFunction((f) => (window as unknown as { __debug: { frames: number } }).__debug.frames >= f + 4, start);
-    maxActive = Math.max(maxActive, (await debugState(page)).activeChunks);
+    const state = await debugState(page);
+    maxActive = Math.max(maxActive, state.activeChunks);
+    geometries.push(state.geometries);
   }
   // Ring of radius 3 (29 chunks) plus the trailing hysteresis band.
   expect(maxActive).toBeLessThanOrEqual(49);
@@ -33,4 +36,8 @@ test('flying straight for 15 km keeps the city ahead and memory bounded (AE5)', 
   }, null, { timeout: 60_000 });
   const state = await debugState(page);
   expect(state.pooled).toBeLessThanOrEqual(maxActive + 2);
+  // GPU geometries stay flat: what is unloaded is disposed.
+  const early = Math.max(...geometries.slice(10, 20));
+  const late = Math.max(...geometries.slice(-10));
+  expect(late).toBeLessThanOrEqual(early * 1.25);
 });

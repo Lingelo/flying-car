@@ -100,3 +100,15 @@ describe('CarController', () => {
     expect(car.forwardSpeed).toBeGreaterThanOrEqual(-TUNING.ground.reverseSpeed - 0.01);
   });
 });
+
+describe('CarController boost release', () => {
+  it('bleeds off the extra boost speed instead of snapping back', () => {
+    const car = new CarController();
+    run(car, 25, { throttle: 1, boost: true });
+    const boosted = car.forwardSpeed;
+    car.step(DT, { ...idle, throttle: 1 });
+    expect(boosted - car.forwardSpeed).toBeLessThan(2);
+    run(car, 15, { throttle: 1 });
+    expect(car.forwardSpeed).toBeLessThanOrEqual(TUNING.ground.maxSpeed * 1.02);
+  });
+});

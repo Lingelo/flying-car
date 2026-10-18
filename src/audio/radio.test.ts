@@ -84,3 +84,17 @@ describe('generatePattern', () => {
     expect(p.bpm).toBeLessThanOrEqual(112);
   });
 });
+
+describe('Radio.appendTracks', () => {
+  it('adds tracks without restarting the one playing', () => {
+    const player = new FakePlayer();
+    const radio = new Radio(tracks.slice(0, 2), player);
+    radio.toggle();
+    radio.next();
+    radio.appendTracks([tracks[2]]);
+    expect(radio.current?.title).toBe('B');
+    expect(player.log).toEqual(['play A', 'stop', 'play B']);
+    radio.next();
+    expect(radio.current?.title).toBe('C');
+  });
+});

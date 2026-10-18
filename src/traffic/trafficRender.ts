@@ -79,11 +79,14 @@ export class TrafficRender {
       this.position.set(p.x, p.y + bob, p.z);
       this.matrix.compose(this.position, this.quaternion, this.scale);
       this.bodies[v.type].setMatrixAt(index, this.matrix);
+      // Paint follows the vehicle, not its instance slot (slots are repacked every frame).
+      this.bodies[v.type].setColorAt(index, PAINTS[v.id % PAINTS.length]);
       this.lights[v.type].setMatrixAt(index, this.matrix);
     }
     this.bodies.forEach((m, type) => {
       m.count = counts[type];
       m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
       this.lights[type].count = counts[type];
       this.lights[type].instanceMatrix.needsUpdate = true;
     });

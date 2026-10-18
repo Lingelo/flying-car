@@ -4,6 +4,8 @@ import { CHUNK_SIZE } from './generator';
 export interface ChunkKey {
   cx: number;
   cz: number;
+  /** Set by a source that could not produce the chunk: it is skipped, never retried. */
+  failed?: boolean;
 }
 
 /** Produces chunks asynchronously (a Web Worker in the app, a synchronous stub in tests). */
@@ -42,6 +44,8 @@ const key = (cx: number, cz: number) => `${cx},${cz}`;
 export class ChunkStreamer<P extends ChunkKey, H> {
   readonly active = new Map<string, ActiveChunk<P, H>>();
   private readonly pending = new Set<string>();
+  /** Chunks the source failed to produce: not requested again (a hole rather than a stall). */
+  readonly failed = new Set<string>();
   private ready: P[] = [];
   private readonly offsets: { dx: number; dz: number; d: number }[] = [];
 
@@ -92,7 +96,10 @@ export class ChunkStreamer<P extends ChunkKey, H> {
     // Request missing chunks, ahead of the movement first.
     const hl = Math.hypot(headingX, headingZ) || 1;
     const missing = this.offsets
-      .filter(({ dx, dz }) => !this.active.has(key(pcx + dx, pcz + dz)) && !this.pending.has(key(pcx + dx, pcz + dz)))
+      .filter(({ dx, dz }) => {
+        const k = key(pcx + dx, pcz + dz);
+        return !this.active.has(k) && !this.pending.has(k) && !this.failed.has(k);
+      })
       .map((o) => ({ ...o, score: o.d - (o.d ? (0.75 * (o.dx * headingX + o.dz * headingZ)) / (hl * o.d) : 0) }))
       .sort((a, b) => a.score - b.score);
     for (const o of missing) {
@@ -104,7 +111,14 @@ export class ChunkStreamer<P extends ChunkKey, H> {
 
     // Mount what arrived, nearest first, within the per-frame budget.
     // A chunk stays "pending" until it is mounted or dropped, so it is never requested twice.
-    this.ready.push(...this.source.drain());
+    for (const c of this.source.drain()) {
+      if (c.failed) {
+        this.pending.delete(key(c.cx, c.cz));
+        this.failed.add(key(c.cx, c.cz));
+      } else {
+        this.ready.push(c);
+      }
+    }
     this.ready = this.ready.filter((c) => {
       const keep = distance(c.cx, c.cz) <= radius;
       if (!keep) this.pending.delete(key(c.cx, c.cz));

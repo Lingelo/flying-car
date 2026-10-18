@@ -119,3 +119,26 @@ describe('ChunkStreamer', () => {
     expect(ahead).toBeLessThan(behind);
   });
 });
+
+describe('ChunkStreamer with a failing source', () => {
+  it('releases failed chunks so streaming never stalls', () => {
+    const failing = new Set(['1,0', '2,0', '-1,0', '0,1', '0,-1', '1,1', '-1,-1']);
+    let queue: (Chunk & { failed?: boolean })[] = [];
+    const source: ChunkSource<Chunk & { failed?: boolean }> = {
+      request: (cx, cz) => {
+        const c = generateChunk(1, cx, cz);
+        queue.push(failing.has(`${cx},${cz}`) ? { ...c, failed: true } : c);
+      },
+      drain: () => {
+        const out = queue;
+        queue = [];
+        return out;
+      },
+    };
+    const sink = new PooledSink();
+    const streamer = new ChunkStreamer(source, sink as unknown as ChunkSink<Chunk & { failed?: boolean }, Handle>, { radius: 3, lodRadius: 2, maxMountsPerFrame: 2, maxInFlight: 4 });
+    for (let i = 0; i < 80; i++) streamer.update(10, 10);
+    expect(streamer.active.size).toBe(29 - failing.size);
+    expect(streamer.failed.size).toBe(failing.size);
+  });
+});

@@ -114,7 +114,8 @@ export class CarController {
     const drag = (accel / (maxSpeed * maxSpeed)) * vf * Math.abs(vf);
     vf -= drag * dt;
     if (input.throttle === 0) vf = approach(vf, 0, flying ? 0.25 : 0.5, dt);
-    vf = Math.max(-params.reverseSpeed, Math.min(vf, maxSpeed));
+    // Above the cap (boost just released) drag bleeds the excess off instead of a hard snap.
+    vf = Math.max(-params.reverseSpeed, Math.min(vf, Math.max(maxSpeed, speedAlong)));
 
     // Lateral grip: lower when turning hard at speed, which lets the car drift.
     const drifting = !flying && Math.abs(input.steer) > 0.5 && Math.abs(speedAlong) > TUNING.ground.driftSpeed;

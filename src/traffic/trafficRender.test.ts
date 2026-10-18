@@ -51,6 +51,20 @@ describe('TrafficRender', () => {
     expect(front.x).toBeCloseTo(1, 1);
   });
 
+  it('keeps a vehicle in the same paint when another one leaves', () => {
+    const { sim, lanes, render } = setup();
+    sim.addVehicle(lanes[0], 10, 0, 0);
+    sim.addVehicle(lanes[0], 60, 0, 0);
+    render.update(sim, 0);
+    const before = new THREE.Color();
+    render.bodies[0].getColorAt(1, before);
+    sim.vehicles.shift();
+    render.update(sim, 0);
+    const after = new THREE.Color();
+    render.bodies[0].getColorAt(0, after);
+    expect(after.equals(before)).toBe(true);
+  });
+
   it('never shows more instances than its capacity', () => {
     const { sim, lanes, render } = setup();
     for (let i = 0; i < 200; i++) sim.addVehicle(lanes[i % lanes.length], i * 10, 0, 0);

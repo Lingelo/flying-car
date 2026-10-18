@@ -64,7 +64,7 @@ export function loadBindings(storage: StorageLike | null): Bindings {
     if (!parsed || typeof parsed !== 'object') return result;
     for (const action of ACTIONS) {
       const codes = (parsed as Record<string, unknown>)[action];
-      if (Array.isArray(codes) && codes.length && codes.every((c) => typeof c === 'string' && c.length < 32)) {
+      if (Array.isArray(codes) && codes.length && codes.every((c) => typeof c === 'string' && /^[A-Za-z0-9]{1,31}$/.test(c))) {
         result[action] = codes as string[];
       }
     }

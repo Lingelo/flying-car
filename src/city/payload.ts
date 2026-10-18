@@ -13,6 +13,7 @@ export interface ChunkPayload {
   buildings: GeometryData;
   buildingsLod: GeometryData;
   ground: GroundGeometry;
+  failed?: boolean;
   signs: GeometryData;
   holograms: GeometryData;
   /** (x, y, z, seed) per steam particle. */
@@ -40,18 +41,30 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
 export class WorkerChunkSource implements ChunkSource<ChunkPayload> {
   private readonly worker = new Worker(new URL('./chunk.worker.ts', import.meta.url), { type: 'module' });
   private arrived: ChunkPayload[] = [];
+  private readonly requested = new Set<string>();
 
   constructor(private readonly seed: number) {
     this.worker.onmessage = (event: MessageEvent<ChunkPayload>) => this.arrived.push(event.data);
+    this.worker.onerror = (event) => {
+      // The worker itself failed (script not loaded): release every pending chunk as failed.
+      console.error('chunk worker error', event.message);
+      for (const k of this.requested) {
+        const [cx, cz] = k.split(',').map(Number);
+        this.arrived.push({ cx, cz, failed: true } as ChunkPayload);
+      }
+      this.requested.clear();
+    };
   }
 
   request(cx: number, cz: number): void {
+    this.requested.add(`${cx},${cz}`);
     this.worker.postMessage({ seed: this.seed, cx, cz });
   }
 
   drain(): ChunkPayload[] {
     const out = this.arrived;
     this.arrived = [];
+    for (const c of out) this.requested.delete(`${c.cx},${c.cz}`);
     return out;
   }
 

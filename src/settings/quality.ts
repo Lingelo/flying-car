@@ -29,3 +29,6 @@ export function pixelRatioFor(name: QualityName, devicePixelRatio: number): numb
   const q = QUALITY[name];
   return Math.min(q.maxPixelRatio, Math.max(q.minPixelRatio, devicePixelRatio));
 }
+
+/** Largest traffic of any preset: sizes the instance buffers once. */
+export const MAX_TRAFFIC = Math.max(...QUALITY_NAMES.map((n) => QUALITY[n].traffic));

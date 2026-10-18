@@ -6,6 +6,9 @@ export interface DebugState {
   pooled: number;
   mode: string;
   paused: boolean;
+  geometries: number;
+  night: number;
+  fog: number;
 }
 
 export const debugState = (page: Page) => page.evaluate(() => (window as unknown as { __debug: DebugState }).__debug);
@@ -15,7 +18,8 @@ export function collectErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !m.text().includes('favicon') && !m.text().includes('404')) errors.push(m.text());
+    // Only the favicon may be missing; any other 404 (worker chunk, manifest…) is an error.
+    if (m.type() === 'error' && !/favicon/.test(m.location().url)) errors.push(`${m.text()} ${m.location().url}`);
   });
   return errors;
 }

@@ -8,7 +8,7 @@ import { CameraRig } from './camera/rig';
 import { Benchmark } from './core/bench';
 import { createLoop } from './core/loop';
 import { parseSeed } from './core/seed';
-import { createGame, safeLocalStorage, type Game } from './game';
+import { createGame, safeLocalStorage } from './game';
 import { installHeightFog } from './render/fog';
 import { cityUniforms } from './render/materials/cityUniforms';
 import { RenderPipeline } from './render/pipeline';
@@ -45,12 +45,12 @@ const rig = new CameraRig(camera, game.world);
 const audio = new AudioSystem(camera);
 
 let quality: QualityName = 'high';
-function applyQuality(name: QualityName, target: Game = game): void {
+function applyQuality(name: QualityName): void {
   quality = name;
   const q = QUALITY[name];
   pipeline.setQuality(name);
-  target.streamer.setRadius(q.ringRadius, q.lodRadius);
-  target.traffic.setMaxVehicles(q.traffic);
+  game.streamer.setRadius(q.ringRadius, q.lodRadius);
+  game.traffic.setMaxVehicles(q.traffic);
 }
 
 const storage = safeLocalStorage();
@@ -65,15 +65,13 @@ function applySettings(next: Settings): void {
   environment.weather.force(next.weather);
   audio.setVolume(next.masterVolume, next.musicVolume);
 }
-applySettings(settings);
-// URL parameters override the saved settings (handy for tests and sharing a view).
+// URL parameters override the saved settings for this visit (tests, sharing a view), without
+// being saved: folded in first so the menu starts from the effective values.
 const qualityParam = params.get('quality') as QualityName | null;
-if (qualityParam && QUALITY_NAMES.includes(qualityParam)) applyQuality(qualityParam);
-if (params.has('hour') && Number.isFinite(hourParam)) {
-  environment.hour = ((hourParam % 24) + 24) % 24;
-  environment.autoTime = false;
-}
-if (weatherParam === 'clear' || weatherParam === 'haze' || weatherParam === 'rain') environment.weather.force(weatherParam);
+if (qualityParam && QUALITY_NAMES.includes(qualityParam)) settings = { ...settings, quality: qualityParam };
+if (params.has('hour') && Number.isFinite(hourParam)) settings = { ...settings, hour: ((hourParam % 24) + 24) % 24 };
+if (weatherParam === 'clear' || weatherParam === 'haze' || weatherParam === 'rain') settings = { ...settings, weather: weatherParam };
+applySettings(settings);
 
 const hud = new Hud(document.body, game.input.bindings);
 let paused = false;
@@ -88,7 +86,8 @@ const menu = new SettingsMenu(document.body, settings, game.input.bindings, game
     hud.setBindings(bindings);
   },
   onClose() {
-    paused = false;
+    // Leaving the menu must not unfreeze an active photo session.
+    paused = photo.active;
   },
 });
 const photo = new PhotoMode(camera, {
@@ -125,7 +124,7 @@ if (params.has('bench')) {
   const gl = pipeline.renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
   const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'GPU inconnu';
-  bench = new Benchmark(game, environment, () => quality, gpu);
+  bench = new Benchmark(game, environment, seed, () => quality, gpu);
 }
 
 let t = 0;
@@ -139,13 +138,14 @@ createLoop(
     environment.update(dt);
     game.step(dt);
   },
-  () => {
+  (alpha) => {
     const now = performance.now();
     const frameDt = Math.min(0.1, (now - last) / 1000);
     last = now;
     frames++;
     bench?.frame(frameDt);
-    game.frame();
+    game.frame(paused);
+    const view = game.render(paused ? 1 : alpha, frameDt);
     if (menu.isOpen) {
       if (game.input.pressed('menu')) menu.close();
       pipeline.render(frameDt);
@@ -157,7 +157,10 @@ createLoop(
     }
     if (game.input.pressed('photo')) {
       if (photo.active) photo.exit();
-      else photo.enter(game.car.state);
+      else {
+        wheel = 0;
+        photo.enter(game.car.state);
+      }
     }
     if (photo.active) {
       photo.update(game.input.look, wheel - game.input.axes.throttle * frameDt * 12);
@@ -171,9 +174,9 @@ createLoop(
       rig.next();
       hud.flash(`CAMÉRA ${rig.mode === 'chase' ? 'POURSUITE' : rig.mode === 'cockpit' ? 'COCKPIT' : 'CINÉMATIQUE'}`);
     }
-    rig.update(frameDt, game.car.state, game.input.look);
+    rig.update(frameDt, view, game.input.look);
 
-    const p = game.car.state.position;
+    const p = view.position;
     focus.set(p.x, p.y, p.z);
     sky.update(environment, focus, camera, fog);
     const w = environment.weather.state;
@@ -212,7 +215,16 @@ createLoop(
 // Diagnostics for automated browser tests only (?debug=1).
 if (params.has('debug')) {
   Object.defineProperty(window, '__debug', {
-    get: () => ({ frames, activeChunks: game.streamer.active.size, pooled: game.city.pooled, mode: game.car.state.mode, paused }),
+    get: () => ({
+      frames,
+      activeChunks: game.streamer.active.size,
+      pooled: game.city.pooled,
+      geometries: pipeline.renderer.info.memory.geometries,
+      mode: game.car.state.mode,
+      paused,
+      night: cityUniforms.uNight.value,
+      fog: fog.density,
+    }),
   });
   Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio, __hud: hud, __menu: menu, __photo: photo });
 }

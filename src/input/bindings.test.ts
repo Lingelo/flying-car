@@ -80,6 +80,12 @@ describe('bindings', () => {
     expect(loaded).not.toHaveProperty('unknown');
   });
 
+  it('rejects stored codes that are not KeyboardEvent codes (markup)', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('flying-car.bindings', JSON.stringify({ camera: ['<img src=x onerror=1>'] }));
+    expect(loadBindings(storage).camera).toEqual(DEFAULT_BINDINGS.camera);
+  });
+
   it('round-trips through storage', () => {
     const storage = new MemoryStorage();
     const custom = rebind(DEFAULT_BINDINGS, 'photo', 'KeyK');

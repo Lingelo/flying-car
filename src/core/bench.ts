@@ -37,6 +37,7 @@ export class Benchmark {
   constructor(
     private readonly game: Game,
     environment: Environment,
+    seed: number,
     private readonly quality: () => string,
     private readonly gpu: string,
   ) {
@@ -44,7 +45,7 @@ export class Benchmark {
     search: for (let r = 0; r < 40; r++)
       for (let cx = -r; cx <= r; cx++)
         for (let cz = -r; cz <= r; cz++)
-          if (Math.max(Math.abs(cx), Math.abs(cz)) === r && districtAt(1, cx, cz) === 'downtown') {
+          if (Math.max(Math.abs(cx), Math.abs(cz)) === r && districtAt(seed, cx, cz) === 'downtown') {
             start = { cx, cz };
             break search;
           }

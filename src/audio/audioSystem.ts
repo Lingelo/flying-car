@@ -29,7 +29,7 @@ export class AudioSystem {
     this.radioGain.connect(master);
     this.radio = new Radio(GENERATED_TRACKS, new AudioTrackPlayer(ctx, this.radioGain));
     void loadManifest(import.meta.env.BASE_URL).then((extra) => {
-      if (extra.length) this.radio.setTracks([...GENERATED_TRACKS, ...extra]);
+      if (extra.length) this.radio.appendTracks(extra);
     });
 
     const resume = () => {
