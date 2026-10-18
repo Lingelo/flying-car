@@ -1,0 +1,131 @@
+import { CHUNK_SIZE, type Chunk } from './generator';
+
+/** Produces chunks asynchronously (a Web Worker in the app, a synchronous stub in tests). */
+export interface ChunkSource {
+  request(cx: number, cz: number): void;
+  /** Chunks that arrived since the last call. */
+  drain(): Chunk[];
+}
+
+/** Turns chunk data into something visible and back (meshes in the app). */
+export interface ChunkSink<H> {
+  mount(chunk: Chunk, lod: boolean): H;
+  unmount(handle: H): void;
+  setLod(handle: H, lod: boolean): void;
+}
+
+export interface StreamerOptions {
+  /** Chunks within this distance (in chunks) of the player are loaded. */
+  radius: number;
+  /** Chunks beyond this distance use the simplified level of detail. */
+  lodRadius: number;
+  /** Upper bound on GPU uploads per frame, to avoid hitches. */
+  maxMountsPerFrame: number;
+  maxInFlight?: number;
+}
+
+export interface ActiveChunk<H> {
+  chunk: Chunk;
+  handle: H;
+  lod: boolean;
+}
+
+const key = (cx: number, cz: number) => `${cx},${cz}`;
+
+/** Keeps a ring of chunks loaded around the player, closest and straight-ahead chunks first. */
+export class ChunkStreamer<H> {
+  readonly active = new Map<string, ActiveChunk<H>>();
+  private readonly pending = new Set<string>();
+  private ready: Chunk[] = [];
+  private readonly offsets: { dx: number; dz: number; d: number }[] = [];
+
+  constructor(
+    private readonly source: ChunkSource,
+    private readonly sink: ChunkSink<H>,
+    private readonly options: StreamerOptions,
+  ) {
+    const r = options.radius;
+    for (let dx = -r; dx <= r; dx++)
+      for (let dz = -r; dz <= r; dz++) {
+        const d = Math.hypot(dx, dz);
+        if (d <= r) this.offsets.push({ dx, dz, d });
+      }
+  }
+
+  /** Call once per frame with the player position and, optionally, its horizontal heading. */
+  update(x: number, z: number, headingX = 0, headingZ = 0): void {
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    const { radius, lodRadius, maxMountsPerFrame, maxInFlight = 4 } = this.options;
+    const distance = (cx: number, cz: number) => Math.hypot(cx - pcx, cz - pcz);
+
+    // Unload with one chunk of hysteresis so that hovering on a border does not thrash.
+    for (const [k, entry] of this.active) {
+      const d = distance(entry.chunk.cx, entry.chunk.cz);
+      if (d > radius + 1) {
+        this.sink.unmount(entry.handle);
+        this.active.delete(k);
+      } else if (d > lodRadius !== entry.lod) {
+        entry.lod = d > lodRadius;
+        this.sink.setLod(entry.handle, entry.lod);
+      }
+    }
+
+    // Request missing chunks, ahead of the movement first.
+    const hl = Math.hypot(headingX, headingZ) || 1;
+    const missing = this.offsets
+      .filter(({ dx, dz }) => !this.active.has(key(pcx + dx, pcz + dz)) && !this.pending.has(key(pcx + dx, pcz + dz)))
+      .map((o) => ({ ...o, score: o.d - (o.d ? (0.75 * (o.dx * headingX + o.dz * headingZ)) / (hl * o.d) : 0) }))
+      .sort((a, b) => a.score - b.score);
+    for (const o of missing) {
+      if (this.pending.size >= maxInFlight) break;
+      const k = key(pcx + o.dx, pcz + o.dz);
+      this.pending.add(k);
+      this.source.request(pcx + o.dx, pcz + o.dz);
+    }
+
+    // Mount what arrived, nearest first, within the per-frame budget.
+    // A chunk stays "pending" until it is mounted or dropped, so it is never requested twice.
+    this.ready.push(...this.source.drain());
+    this.ready = this.ready.filter((c) => {
+      const keep = distance(c.cx, c.cz) <= radius;
+      if (!keep) this.pending.delete(key(c.cx, c.cz));
+      return keep;
+    });
+    this.ready.sort((a, b) => distance(a.cx, a.cz) - distance(b.cx, b.cz));
+    for (const chunk of this.ready.splice(0, maxMountsPerFrame)) {
+      this.pending.delete(key(chunk.cx, chunk.cz));
+      const lod = distance(chunk.cx, chunk.cz) > lodRadius;
+      this.active.set(key(chunk.cx, chunk.cz), { chunk, handle: this.sink.mount(chunk, lod), lod });
+    }
+  }
+
+  dispose(): void {
+    for (const entry of this.active.values()) this.sink.unmount(entry.handle);
+    this.active.clear();
+  }
+}
+
+/** Generates chunks off the main thread. */
+export class WorkerChunkSource implements ChunkSource {
+  private readonly worker = new Worker(new URL('./chunk.worker.ts', import.meta.url), { type: 'module' });
+  private arrived: Chunk[] = [];
+
+  constructor(private readonly seed: number) {
+    this.worker.onmessage = (event: MessageEvent<Chunk>) => this.arrived.push(event.data);
+  }
+
+  request(cx: number, cz: number): void {
+    this.worker.postMessage({ seed: this.seed, cx, cz });
+  }
+
+  drain(): Chunk[] {
+    const out = this.arrived;
+    this.arrived = [];
+    return out;
+  }
+
+  dispose(): void {
+    this.worker.terminate();
+  }
+}
