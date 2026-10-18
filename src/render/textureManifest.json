@@ -1,0 +1,16 @@
+{
+  "source": "https://polyhaven.com",
+  "license": "CC0",
+  "textures": [
+    { "id": "panels", "polyhaven": "concrete_panels", "metres": 6, "use": "facade" },
+    { "id": "tiles", "polyhaven": "rectangular_facade_tiles", "metres": 3, "use": "facade" },
+    { "id": "precast", "polyhaven": "precast_concrete_wall", "metres": 4, "use": "facade" },
+    { "id": "tileFacade", "polyhaven": "concrete_tile_facade", "metres": 3, "use": "facade" },
+    { "id": "corrugated", "polyhaven": "corrugated_iron_02", "metres": 3, "use": "facade" },
+    { "id": "metal", "polyhaven": "metal_plate", "metres": 2, "use": "props" },
+    { "id": "shutter", "polyhaven": "painted_metal_shutter", "metres": 3, "use": "props" },
+    { "id": "asphalt", "polyhaven": "worn_asphalt", "metres": 6, "use": "road" },
+    { "id": "pavement", "polyhaven": "herringbone_concrete_tile_02", "metres": 2, "use": "ground" }
+  ],
+  "maps": ["diff", "nor", "arm"]
+}
