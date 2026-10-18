@@ -56,6 +56,12 @@ describe('buildBuildingGeometry', () => {
     expect(tints.size).toBe(4);
   });
 
+  it('encodes the district index and the seed for the facade shader', () => {
+    const g = buildBuildingGeometry({ ...oneTower, district: 'industrial' }, false);
+    expect(Math.floor(g.info[0])).toBe(3);
+    expect(g.info[0] % 1).toBeCloseTo(0.00123, 5);
+  });
+
   it('stores the tier top so the shader can outline roofs', () => {
     const g = buildBuildingGeometry(oneTower, false);
     const tops = new Set<number>();

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { FLOOR_HEIGHT } from '../../city/buildingMesh';
+import manifest from '../textureManifest.json';
+import { loadTextureSet, type TextureId } from '../textures';
 import { cityUniforms } from './cityUniforms';
+import { INTERIOR_GLSL } from './interior';
 
 /** Neon accent palette (magenta, cyan, violet, amber) picked per building from its seed. */
 export const NEON_PALETTE: [number, number, number][] = [
@@ -13,16 +16,41 @@ export const NEON_PALETTE: [number, number, number][] = [
 /** Window column width per style: grid, ribbons, curtain wall, sparse, skywalk. */
 export const STYLE_COLUMN_WIDTH = [3.2, 6.0, 1.8, 4.5, 2.0];
 
+/** Wall materials, in the order the shader indexes them (0–3 by style, 4 industrial). */
+export const FACADE_TEXTURES: TextureId[] = ['panels', 'tileFacade', 'precast', 'tiles', 'corrugated'];
+const metres = (id: TextureId) => manifest.textures.find((t) => t.id === id)!.metres;
+
 const vec3 = (c: number[]) => `vec3(${c.map((v) => v.toFixed(3)).join(',')})`;
 
+/** Wall textures shared by every facade, filled once the CC0 maps are loaded. */
+export const facadeUniforms: Record<string, { value: unknown }> = {
+  uFacadeReady: { value: 0 },
+  ...Object.fromEntries(FACADE_TEXTURES.flatMap((_, i) => [[`uWall${i}`, { value: null }], [`uWallN${i}`, { value: null }]])),
+};
+
+export async function loadFacadeTextures(): Promise<void> {
+  const sets = await Promise.all(FACADE_TEXTURES.map((id) => loadTextureSet(id)));
+  if (sets.some((s) => !s)) return; // keep the procedural look
+  sets.forEach((s, i) => {
+    facadeUniforms[`uWall${i}`].value = s!.diff;
+    facadeUniforms[`uWallN${i}`].value = s!.nor;
+  });
+  facadeUniforms.uFacadeReady.value = 1;
+}
+
+const samplerDecls = FACADE_TEXTURES.map((_, i) => `uniform sampler2D uWall${i};\nuniform sampler2D uWallN${i};`).join('\n');
+// Branches on a per-building index: textureGrad keeps mipmapping correct in non-uniform flow.
+const pick = (name: string) =>
+  FACADE_TEXTURES.map((id, i) => `${i ? 'else ' : ''}if (m == ${i}) r = textureGrad(${name}${i}, uv / ${metres(id).toFixed(1)}, gx / ${metres(id).toFixed(1)}, gy / ${metres(id).toFixed(1)});`).join('\n    ');
+
 /**
- * Building material: windows, storefronts and neon roof outlines are procedural, drawn from the
- * metre-based UVs and per-vertex info (seed, style, tier top, roof flag) built by `buildingMesh`.
+ * Building material: photographic CC0 walls with normal maps and grime, windows that open onto
+ * interior-mapped rooms (R2), storefronts at street level and neon outlines under the roofs.
  */
 export function createFacadeMaterial(): THREE.MeshStandardMaterial {
-  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.15 });
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.05 });
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, cityUniforms);
+    Object.assign(shader.uniforms, cityUniforms, facadeUniforms);
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -30,13 +58,17 @@ export function createFacadeMaterial(): THREE.MeshStandardMaterial {
 attribute vec2 aUv;
 attribute vec4 aInfo;
 varying vec2 vFacadeUv;
-varying vec4 vInfo;`,
+varying vec4 vInfo;
+varying vec3 vWallNormal;
+varying vec3 vFacadeWorld;`,
       )
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
 vFacadeUv = aUv;
-vInfo = aInfo;`,
+vInfo = aInfo;
+vWallNormal = normal;
+vFacadeWorld = (modelMatrix * vec4(position, 1.0)).xyz;`,
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -45,81 +77,166 @@ vInfo = aInfo;`,
 uniform float uNight;
 uniform float uWetness;
 uniform float uTime;
+uniform float uFacadeReady;
+${samplerDecls}
 varying vec2 vFacadeUv;
 varying vec4 vInfo;
-// Interleaved-gradient style hash: stable in low-precision GPUs, unlike fract(sin(x)).
+varying vec3 vWallNormal;
+varying vec3 vFacadeWorld;
 float facadeHash(vec2 p) { p = mod(p, 4096.0); return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+float facadeNoise(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(facadeHash(i), facadeHash(i + vec2(1, 0)), f.x), mix(facadeHash(i + vec2(0, 1)), facadeHash(i + vec2(1, 1)), f.x), f.y);
+}
 vec3 neonColor(float seed) {
   float i = floor(fract(seed * 13.7) * 4.0);
   return i < 1.0 ? ${vec3(NEON_PALETTE[0])} : i < 2.0 ? ${vec3(NEON_PALETTE[1])} : i < 3.0 ? ${vec3(NEON_PALETTE[2])} : ${vec3(NEON_PALETTE[3])};
 }
+vec4 wallAlbedo(int m, vec2 uv, vec2 gx, vec2 gy) {
+  vec4 r = vec4(0.5);
+  ${pick('uWall')}
+  return r;
+}
+vec4 wallNormal(int m, vec2 uv, vec2 gx, vec2 gy) {
+  vec4 r = vec4(0.5, 0.5, 1.0, 1.0);
+  ${pick('uWallN')}
+  return r;
+}
+${INTERIOR_GLSL}
 float windowMask;
-vec3 facadeEmissive;`,
+vec3 facadeEmissive;
+vec3 facadeTangentNormal;
+float facadeRough;`,
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
 {
-  float seed = vInfo.x;
+  float district = floor(vInfo.x);
+  float seed = fract(vInfo.x);
   int style = int(vInfo.y + 0.5);
   float tierTop = vInfo.z;
   bool roof = vInfo.w > 0.5;
   windowMask = 0.0;
   facadeEmissive = vec3(0.0);
+  facadeTangentNormal = vec3(0.0, 0.0, 1.0);
+  facadeRough = 0.85;
+
+  // Tint normalised around 1, so the photographic albedo keeps its range.
+  vec3 tint = diffuseColor.rgb / max(0.001, dot(diffuseColor.rgb, vec3(0.333)));
+  int m = district > 2.5 ? 4 : int(mod(float(style) + floor(seed * 3.0), 4.0));
+  vec2 wallUv = roof ? vFacadeWorld.xz : vFacadeUv + vec2(seed * 37.0, 0.0);
+  vec2 gx = dFdx(wallUv);
+  vec2 gy = dFdy(wallUv);
+  vec3 albedo;
+  if (uFacadeReady > 0.5) {
+    albedo = wallAlbedo(m, wallUv, gx, gy).rgb * mix(vec3(1.0), tint, 0.35);
+    facadeTangentNormal = wallNormal(m, wallUv, gx, gy).xyz * 2.0 - 1.0;
+  } else {
+    albedo = diffuseColor.rgb * (0.85 + 0.3 * facadeNoise(wallUv * 0.7));
+  }
+
+  // Weathering: dirty foot, darker crown, rain streaks running down the walls.
+  float streaks = facadeNoise(vec2(vFacadeUv.x * 1.3, vFacadeUv.y * 0.04 + seed * 9.0));
+  float dirt = 0.25 * (1.0 - smoothstep(0.0, 6.0, vFacadeUv.y)) + 0.3 * smoothstep(0.55, 0.95, streaks) + 0.12 * smoothstep(tierTop - 4.0, tierTop, vFacadeUv.y);
+  albedo *= 1.0 - (roof ? 0.35 : dirt);
+
   if (roof) {
-    diffuseColor.rgb *= 0.55;
+    albedo *= 0.6;
   } else {
     float colW = style == 0 ? ${STYLE_COLUMN_WIDTH[0].toFixed(1)} : style == 1 ? ${STYLE_COLUMN_WIDTH[1].toFixed(1)} : style == 2 ? ${STYLE_COLUMN_WIDTH[2].toFixed(1)} : style == 3 ? ${STYLE_COLUMN_WIDTH[3].toFixed(1)} : ${STYLE_COLUMN_WIDTH[4].toFixed(1)};
-    vec2 cellUv = vFacadeUv / vec2(colW, ${FLOOR_HEIGHT.toFixed(2)});
+    vec2 cellSize = vec2(colW, ${FLOOR_HEIGHT.toFixed(2)});
+    vec2 cellUv = vFacadeUv / cellSize;
     vec2 cell = floor(cellUv);
     vec2 f = fract(cellUv);
     vec2 fw = fwidth(cellUv);
-    // Window opening inside each cell, per style.
-    vec2 lo = style == 1 ? vec2(0.02, 0.3) : style == 2 ? vec2(0.06, 0.08) : style == 3 ? vec2(0.3, 0.3) : vec2(0.18, 0.25);
+    vec2 lo = style == 1 ? vec2(0.03, 0.28) : style == 2 ? vec2(0.05, 0.1) : style == 3 ? vec2(0.3, 0.32) : vec2(0.16, 0.24);
     vec2 hi = vec2(1.0) - lo;
-    vec2 m = smoothstep(lo - fw, lo + fw, f) * (1.0 - smoothstep(hi - fw, hi + fw, f));
-    float win = m.x * m.y;
-    // Far away the pattern is smaller than a pixel: fade to its average to avoid moire.
+    vec2 open2 = smoothstep(lo - fw, lo + fw, f) * (1.0 - smoothstep(hi - fw, hi + fw, f));
+    float open = open2.x * open2.y;
+    // Frame around the opening: a raised metal border with a bevelled normal.
+    vec2 frameLo = lo - 0.05;
+    vec2 frameHi = hi + 0.05;
+    vec2 inFrame2 = step(frameLo, f) * step(f, frameHi);
+    float frame = inFrame2.x * inFrame2.y * (1.0 - open);
     float far = clamp(max(fw.x, fw.y) * 2.0 - 0.4, 0.0, 1.0);
-    float coverage = (hi.x - lo.x) * (hi.y - lo.y);
-    win = mix(win, coverage, far);
-    bool ground = vFacadeUv.y < 4.5;
-    windowMask = ground ? 0.0 : win;
-    float r = facadeHash(cell + vec2(seed * 917.0, seed * 413.0));
-    float litRatio = mix(0.03, 0.3, uNight);
-    float lit = (1.0 - smoothstep(litRatio - 0.02, litRatio + 0.02, r)) * windowMask;
-    lit = mix(lit, litRatio * coverage, far);
-    vec3 warm = vec3(1.0, 0.72, 0.42);
-    vec3 cool = vec3(0.62, 0.8, 1.0);
-    vec3 neon = neonColor(seed);
-    float r2 = facadeHash(cell.yx + seed * 31.0);
-    vec3 lightColor = r2 < 0.55 ? warm : r2 < 0.9 ? cool : neon;
-    float dim = 0.35 + 0.65 * facadeHash(cell * 1.7 + seed * 53.0);
-    facadeEmissive += lightColor * lit * dim * mix(0.25, 1.4, uNight);
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02, 0.03, 0.05), windowMask);
-    // Storefront band at street level.
-    if (ground && style != 4) {
+    bool street = vFacadeUv.y < 4.5;
+    windowMask = street ? 0.0 : mix(open, (hi.x - lo.x) * (hi.y - lo.y), far);
+
+    if (!street) {
+      vec2 toCentre = f - 0.5;
+      facadeTangentNormal = normalize(mix(facadeTangentNormal, vec3(sign(toCentre) * step(abs(toCentre), vec2(0.5)) * 0.5 * frame, 1.0), frame));
+      albedo = mix(albedo, vec3(0.05, 0.055, 0.06), frame * 0.85);
+      // Concrete sill under each window, and its drip stain.
+      float sill = step(abs(f.y - (frameLo.y - 0.02)), 0.025) * step(frameLo.x, f.x) * step(f.x, frameHi.x);
+      albedo = mix(albedo, albedo * 1.25, sill);
+      albedo *= 1.0 - 0.25 * smoothstep(0.0, 0.2, frameLo.y - f.y) * step(f.y, frameLo.y) * step(frameLo.x, f.x) * step(f.x, frameHi.x) * step(0.4, streaks);
+
+      // Interior mapping: the room behind this window, seen through the glass.
+      vec3 V = normalize(vFacadeWorld - cameraPosition);
+      vec3 N = normalize(vWallNormal);
+      vec3 T = vec3(N.z, 0.0, -N.x);
+      vec3 dir = normalize(vec3(dot(V, T), V.y, -dot(V, N)));
+      float roomSeed = facadeHash(cell * vec2(1.0, 7.0) + seed * 311.0);
+      vec2 entry = (f - lo) / (hi - lo) * cellSize;
+      float lightPanel;
+      vec3 roomCol = interiorRoom(entry, dir, vec3(cellSize, 4.0 + roomSeed * 3.0), roomSeed, lightPanel);
+      float litRatio = mix(0.03, 0.32, uNight);
+      bool lit = roomSeed < litRatio;
+      vec3 warm = vec3(1.0, 0.78, 0.55);
+      vec3 cool = vec3(0.7, 0.85, 1.0);
+      vec3 lamp = fract(roomSeed * 91.0) < 0.6 ? warm : fract(roomSeed * 91.0) < 0.92 ? cool : neonColor(roomSeed);
+      // Blinds pulled down some way, glowing when the room is lit.
+      float blind = fract(roomSeed * 47.0) < 0.45 ? fract(roomSeed * 17.0) * 0.8 : 0.0;
+      float wy = (f.y - lo.y) / (hi.y - lo.y);
+      float slats = step(1.0 - blind, wy) * (0.75 + 0.25 * step(0.5, fract(wy * 40.0)));
+      vec3 seen = mix(roomCol, vec3(0.85, 0.8, 0.7) * slats, step(1.0 - blind, wy));
+      float fres = pow(1.0 - abs(dot(V, N)), 5.0);
+      vec3 inside = lit ? seen * lamp * mix(0.5, 2.0, uNight) + lamp * lightPanel * 2.5 : seen * mix(0.18, 0.01, uNight);
+      // Far away rooms blur into their average glow (no aliasing).
+      vec3 farGlow = lamp * litRatio * mix(0.25, 1.2, uNight);
+      facadeEmissive += mix(inside * (1.0 - fres * 0.85) * open, farGlow * windowMask, far);
+      albedo = mix(albedo, vec3(0.015, 0.02, 0.025), windowMask);
+    } else if (style != 4) {
+      // Storefront band at street level.
+      vec3 neon = neonColor(seed);
       float shop = step(0.6, fract(vFacadeUv.x / 9.0 + seed)) * step(1.2, vFacadeUv.y) * (1.0 - step(3.6, vFacadeUv.y));
       facadeEmissive += neon * shop * mix(0.3, 2.2, uNight) * (0.7 + 0.3 * sin(uTime * 3.0 + seed * 40.0));
     }
+
     // Neon outline under the roof of some buildings, and glowing skywalks.
+    vec3 neon = neonColor(seed);
     float outline = 1.0 - smoothstep(0.5, 0.9, tierTop - vFacadeUv.y);
     float hasOutline = step(fract(seed * 3.1), 0.55);
     facadeEmissive += neon * outline * hasOutline * mix(0.2, 3.0, uNight);
     if (style == 4) facadeEmissive += neon * 0.6 * windowMask * mix(0.2, 1.0, uNight);
   }
+  diffuseColor.rgb = albedo;
 }`,
       )
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor, 0.08, windowMask);
+roughnessFactor = mix(roughnessFactor, 0.06, windowMask);
 roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.35, uWetness);`,
       )
       .replace(
         '#include <metalnessmap_fragment>',
         `#include <metalnessmap_fragment>
-metalnessFactor = mix(metalnessFactor, 0.8, windowMask);`,
+metalnessFactor = mix(metalnessFactor, 0.85, windowMask);`,
+      )
+      .replace(
+        '#include <normal_fragment_maps>',
+        `#include <normal_fragment_maps>
+{
+  // Tangent-space detail (texture relief, window frames) brought to view space.
+  vec3 Nw = normalize(vWallNormal);
+  vec3 Tw = abs(Nw.y) > 0.5 ? vec3(1.0, 0.0, 0.0) : vec3(Nw.z, 0.0, -Nw.x);
+  vec3 Bw = abs(Nw.y) > 0.5 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+  vec3 tn = facadeTangentNormal * vec3(0.8, 0.8, 1.0);
+  vec3 world = normalize(Tw * tn.x + Bw * tn.y + Nw * tn.z);
+  normal = normalize((viewMatrix * vec4(world, 0.0)).xyz);
+}`,
       )
       .replace(
         '#include <emissivemap_fragment>',
@@ -127,6 +244,6 @@ metalnessFactor = mix(metalnessFactor, 0.8, windowMask);`,
 totalEmissiveRadiance += facadeEmissive;`,
       );
   };
-  material.customProgramCacheKey = () => 'facade-v1';
+  material.customProgramCacheKey = () => 'facade-v3';
   return material;
 }

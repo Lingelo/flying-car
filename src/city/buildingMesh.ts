@@ -2,13 +2,16 @@ import { QuadBuilder, type GeometryData } from '../render/geometryData';
 import { DISTRICTS } from './districts';
 import type { Box, Chunk } from './generator';
 
+/** Order of the districts as seen by the facade shader. */
+export const DISTRICT_INDEX: Record<Chunk['district'], number> = { downtown: 0, neon: 1, canals: 2, industrial: 3 };
+
 /** Storey height used by the facade shader to lay out windows. */
 export const FLOOR_HEIGHT = 3.6;
 
 /**
  * Building shells of a chunk, relative to the chunk origin. Windows are not modelled: the facade
  * shader draws them from the UVs (metres along the wall, height in metres) and `info`
- * (seed, style, tier top, roof flag).
+ * (district index + seed in [0, 1), style, tier top, roof flag).
  */
 export function buildBuildingGeometry(chunk: Chunk, lod: boolean): GeometryData {
   const q = new QuadBuilder();
@@ -21,7 +24,9 @@ export function buildBuildingGeometry(chunk: Chunk, lod: boolean): GeometryData 
     const k = 0.8 + 0.4 * seed;
     const tint: [number, number, number] = [district.facade[0] * k, district.facade[1] * k, district.facade[2] * k];
     const tiers: Box[] = lod ? [{ ...b.tiers[0], y1: b.height }] : b.tiers;
-    for (const t of tiers) box(q, t, ox, oz, tint, seed, b.style);
+    // The shader picks facade materials per district: its index rides in the integer part.
+    const districtSeed = DISTRICT_INDEX[chunk.district] + seed;
+    for (const t of tiers) box(q, t, ox, oz, tint, districtSeed, b.style);
   }
   for (const w of lod ? [] : chunk.walkways) box(q, w, ox, oz, [0.08, 0.08, 0.1], 0.5, 4);
   return q.finish();

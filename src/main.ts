@@ -20,6 +20,7 @@ import { hasRailLine } from './city/rail';
 import { LandmarkView } from './city/landmarkView';
 import { landmarksNear } from './city/reserved';
 import { signUniforms } from './render/materials/hologram';
+import { loadFacadeTextures } from './render/materials/facade';
 import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 import { loadSettings, saveSettings, type Settings } from './settings/store';
@@ -55,6 +56,8 @@ function renderFrame(dt: number): void {
 window.addEventListener('resize', () => pipeline.resize(container.clientWidth, container.clientHeight));
 
 const game = await createGame(scene, pipeline.renderer.domElement, seed);
+// Photographic walls replace the procedural ones once the CC0 maps are loaded.
+void loadFacadeTextures();
 // Japanese signs appear once the font subsets they need are loaded.
 void createSignAtlas()
   .then((atlas) => {
