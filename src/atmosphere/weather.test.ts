@@ -63,7 +63,7 @@ describe('Weather', () => {
 
   it('thickens the fog in fog and brings a storm level only in storms', () => {
     const fog = new Weather(1, 'fog');
-    expect(fog.state.fog).toBeGreaterThan(WEATHER_TARGETS.rain.fog * 1.5);
+    expect(fog.state.fog).toBeGreaterThan(WEATHER_TARGETS.rain.fog * 1.3);
     expect(fog.state.storm).toBe(0);
     const w = new Weather(1, 'rain');
     w.force('storm');

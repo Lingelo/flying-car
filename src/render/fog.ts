@@ -37,7 +37,7 @@ export function installHeightFog(): void {
     float fogY1 = max(vFogWorld.y, 0.0) / ${FOG_HEIGHT.toFixed(1)};
     float fogDy = fogY1 - fogY0;
     float fogLayer = abs(fogDy) > 0.01 ? (exp(-fogY0) - exp(-fogY1)) / fogDy : exp(-fogY0);
-    float fogOptical = fogDensity * vFogDepth * (0.22 + 0.78 * fogLayer) + pow(fogDensity * vFogDepth * 0.35, 2.0);
+    float fogOptical = fogDensity * vFogDepth * (0.12 + 0.88 * fogLayer) + pow(fogDensity * vFogDepth * 0.2, 2.0);
     float fogFactor = 1.0 - exp(-fogOptical);
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );

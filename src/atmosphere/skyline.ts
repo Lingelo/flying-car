@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FOG_HEIGHT } from '../render/fog';
 
 /** Unit ring scaled to the edge of the streamed city each frame. */
 const RADIUS = 1;
@@ -17,6 +18,8 @@ export class Skyline {
     uTime: { value: 0 },
     uFog: { value: 0.5 },
     uCircumference: { value: 2 * Math.PI * 1400 },
+    /** Share of the skyline that shows through the fog at its distance (0 = lost in it). */
+    uVisibility: { value: 1 },
   };
 
   constructor(scene: THREE.Scene) {
@@ -39,6 +42,7 @@ uniform float uNight;
 uniform float uTime;
 uniform float uFog;
 uniform float uCircumference;
+uniform float uVisibility;
 varying vec2 vUv;
 float h11(float x) { return fract(sin(x * 127.1) * 43758.5453); }
 float h21(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
@@ -68,11 +72,12 @@ void main() {
   // from the ground into the haze.
   vec3 smog = uHaze * (1.0 + 0.6 * exp(-max(y, 0.0) / 120.0));
   vec3 col = smog;
-  col = mix(col, smog * 0.72, back.x * 0.6);
-  col = mix(col, smog * 0.5, front.x * 0.85);
+  // The far ring shows through less fog than the near one does not: both fade with uVisibility.
+  col = mix(col, smog * 0.72, back.x * 0.6 * uVisibility * uVisibility);
+  col = mix(col, smog * 0.5, front.x * 0.85 * uVisibility);
   vec3 warm = vec3(1.0, 0.75, 0.5);
-  col += warm * (back.y * 0.25 + front.y * 0.45) * uNight * (1.0 - uFog * 0.6);
-  col += vec3(1.0, 0.1, 0.08) * step(3.5, front.y + back.y) * uNight * 0.6;
+  col += warm * (back.y * 0.25 * uVisibility + front.y * 0.45) * uNight * uVisibility;
+  col += vec3(1.0, 0.1, 0.08) * step(3.5, front.y + back.y) * uNight * 0.6 * sqrt(uVisibility);
   float alpha = max(max(back.x, front.x), smoothstep(200.0, 0.0, y));
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>
@@ -97,5 +102,10 @@ void main() {
     this.uniforms.uNight.value = night;
     this.uniforms.uTime.value = time;
     this.uniforms.uFog.value = Math.min(1, fog.density / 0.008);
+    // Same fog as the city (render/fog.ts) at the ring's distance, seen from the camera height:
+    // the skyline must never be clearer than the streets in front of it.
+    const layer = Math.exp(-Math.max(camera.position.y, 0) / FOG_HEIGHT);
+    const optical = fog.density * radius * (0.12 + 0.88 * (0.5 + 0.5 * layer)) + (fog.density * radius * 0.2) ** 2;
+    this.uniforms.uVisibility.value = Math.exp(-optical);
   }
 }
