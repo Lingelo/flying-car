@@ -1,4 +1,4 @@
-import { generatePattern, SynthwavePlayer } from './synthwave';
+import { DarkwavePlayer, generatePattern } from './darkwave';
 
 export interface Track {
   title: string;
@@ -21,13 +21,14 @@ export interface TrackPlayer {
 
 export type RadioStatus = 'empty' | 'off' | 'on';
 
-/** Built-in station: generated synthwave, no licence needed. */
+/** Built-in station: generated darkwave, no licence needed. */
 export const GENERATED_TRACKS: Track[] = [
-  { title: 'Néons sous la pluie', artist: 'Radio Néon (générative)', license: 'généré', kind: 'generated', seed: 2077 },
-  { title: 'Couloir 400', artist: 'Radio Néon (générative)', license: 'généré', kind: 'generated', seed: 1982 },
-  { title: 'Arcologie', artist: 'Radio Néon (générative)', license: 'généré', kind: 'generated', seed: 451 },
-  { title: 'Dernier métro', artist: 'Radio Néon (générative)', license: 'généré', kind: 'generated', seed: 88 },
-  { title: 'Hologramme', artist: 'Radio Néon (générative)', license: 'généré', kind: 'generated', seed: 1024 },
+  { title: 'Pluie acide', artist: 'Onde Noire (générative)', license: 'généré', kind: 'generated', seed: 2077 },
+  { title: 'Béton froid', artist: 'Onde Noire (générative)', license: 'généré', kind: 'generated', seed: 1982 },
+  { title: 'Nuit sans étoiles', artist: 'Onde Noire (générative)', license: 'généré', kind: 'generated', seed: 451 },
+  { title: 'Sous la dalle', artist: 'Onde Noire (générative)', license: 'généré', kind: 'generated', seed: 88 },
+  { title: 'Mémoire synthétique', artist: 'Onde Noire (générative)', license: 'généré', kind: 'generated', seed: 1024 },
+  { title: 'Dernière ligne', artist: 'Onde Noire (générative)', license: 'généré', kind: 'generated', seed: 666 },
 ];
 
 /** Car radio: on/off keeps the position, next wraps around, an empty playlist is not an error. */
@@ -97,7 +98,7 @@ export class Radio {
 
 /** Plays generated tracks with the synthesizer and file tracks with an audio element. */
 export class AudioTrackPlayer implements TrackPlayer {
-  private synth: SynthwavePlayer | null = null;
+  private synth: DarkwavePlayer | null = null;
   private synthStep = 0;
   private element: HTMLAudioElement | null = null;
 
@@ -109,7 +110,7 @@ export class AudioTrackPlayer implements TrackPlayer {
   play(track: Track): void {
     this.stop();
     if (track.kind === 'generated') {
-      this.synth = new SynthwavePlayer(this.ctx, this.output, generatePattern(track.seed ?? 1));
+      this.synth = new DarkwavePlayer(this.ctx, this.output, generatePattern(track.seed ?? 1));
       this.synth.start(0);
     } else if (track.url) {
       this.element = new Audio(track.url);

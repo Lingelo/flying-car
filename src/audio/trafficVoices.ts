@@ -60,7 +60,7 @@ export class TrafficVoices {
       const osc = ctx.createOscillator();
       osc.type = 'sawtooth';
       const noise = ctx.createBufferSource();
-      noise.buffer = noiseBuffer(ctx, 'white');
+      noise.buffer = noiseBuffer(ctx, 'pink'); // softer than white: a whoosh, not a hiss
       noise.loop = true;
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assignVoices, dopplerFactor } from './trafficVoices';
-import { ambienceLevels } from './ambience';
+import { ambienceLevels, rainDropRates, windCutoff } from './ambience';
 import { engineParams } from './engine';
 
 const at = (x: number, z = 0) => ({ id: x, x, y: 0, z });
@@ -49,6 +49,15 @@ describe('engineParams', () => {
     expect(flight.turbineGain).toBeGreaterThan(0);
     expect(flight.motorGain).toBeLessThan(ground.motorGain);
   });
+
+  it('keeps the turbine a deep hum whose pitch rises with throttle and boost', () => {
+    const idle = engineParams({ speed: 0, throttle: 0, deploy: 1, boost: false });
+    const full = engineParams({ speed: 80, throttle: 1, deploy: 1, boost: false });
+    const boosted = engineParams({ speed: 80, throttle: 1, deploy: 1, boost: true });
+    expect(full.turbineFreq).toBeGreaterThan(idle.turbineFreq);
+    expect(boosted.turbineFreq).toBeGreaterThan(full.turbineFreq);
+    expect(engineParams({ speed: 500, throttle: 1, deploy: 1, boost: true }).turbineFreq).toBeLessThan(120);
+  });
 });
 
 describe('ambienceLevels', () => {
@@ -62,5 +71,19 @@ describe('ambienceLevels', () => {
   it('follows the rain intensity', () => {
     expect(ambienceLevels({ altitude: 0, speed: 0, rain: 0 }).rain).toBe(0);
     expect(ambienceLevels({ altitude: 0, speed: 0, rain: 1 }).rain).toBeGreaterThan(0.2);
+  });
+
+  it('scatters more drops as the rain gets heavier, none when dry', () => {
+    expect(rainDropRates(0)).toEqual({ drops: 0, drips: 0 });
+    expect(rainDropRates(1).drops).toBeGreaterThan(rainDropRates(0.3).drops);
+    expect(rainDropRates(1).drips).toBeGreaterThan(0);
+  });
+
+  it('keeps the wind dark: cutoff within 300-900 Hz, opening with speed', () => {
+    expect(windCutoff(80, 0)).toBeGreaterThan(windCutoff(0, 0));
+    for (const [speed, alt] of [[0, 0], [200, 1000]]) {
+      expect(windCutoff(speed, alt)).toBeGreaterThanOrEqual(300);
+      expect(windCutoff(speed, alt)).toBeLessThanOrEqual(900);
+    }
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Radio, type Track, type TrackPlayer } from './radio';
-import { generatePattern, SCALE } from './synthwave';
+import { BPM_RANGE, fillImpulse, generatePattern, STEPS_PER_BAR } from './darkwave';
+import { Rng } from '../core/random';
 
 class FakePlayer implements TrackPlayer {
   log: string[] = [];
@@ -70,18 +71,53 @@ describe('Radio', () => {
 });
 
 describe('generatePattern', () => {
+  const seeds = [1, 7, 11, 88, 451, 1024, 1982, 2077];
+
   it('is deterministic for a seed and different across seeds', () => {
     expect(generatePattern(7)).toEqual(generatePattern(7));
     expect(generatePattern(7)).not.toEqual(generatePattern(8));
   });
 
-  it('keeps every note in the scale of the key', () => {
-    const p = generatePattern(11);
-    for (const n of [...p.bass, ...p.arp].filter((n) => n !== null) as number[]) {
-      expect(SCALE).toContain((((n - p.root) % 12) + 12) % 12);
+  it('keeps every note in the minor scale of the key', () => {
+    for (const seed of seeds) {
+      const p = generatePattern(seed);
+      expect(['aeolian', 'phrygian']).toContain(p.mode);
+      expect(p.scale).toContain(3); // minor third
+      const notes = [...p.bass, ...p.arp, ...p.pads.flat()].filter((n) => n !== null) as number[];
+      for (const n of notes) expect(p.scale).toContain((((n - p.root) % 12) + 12) % 12);
     }
-    expect(p.bpm).toBeGreaterThanOrEqual(84);
-    expect(p.bpm).toBeLessThanOrEqual(112);
+  });
+
+  it('stays at a darkwave tempo with the snare on 2 and 4', () => {
+    for (const seed of seeds) {
+      const p = generatePattern(seed);
+      expect(p.bpm).toBeGreaterThanOrEqual(BPM_RANGE[0]);
+      expect(p.bpm).toBeLessThanOrEqual(BPM_RANGE[1]);
+      expect(p.snare.map((s, i) => (s ? i % STEPS_PER_BAR : -1)).filter((i) => i >= 0).every((i) => i === 4 || i === 12)).toBe(true);
+      expect(p.bass.length).toBe(4 * STEPS_PER_BAR);
+    }
+  });
+
+  it('keeps the arpeggio sparse', () => {
+    for (const seed of seeds) {
+      const p = generatePattern(seed);
+      expect(p.arp.filter((n) => n !== null).length).toBeLessThan(p.arp.length / 2);
+    }
+  });
+});
+
+describe('fillImpulse', () => {
+  it('decays to near silence and is deterministic for a random source', () => {
+    const make = () => {
+      const data = new Float32Array(8000);
+      const rng = new Rng(3);
+      fillImpulse(data, 4000, 2, () => rng.next());
+      return data;
+    };
+    const ir = make();
+    expect(ir).toEqual(make());
+    const energy = (from: number, to: number) => ir.slice(from, to).reduce((sum, v) => sum + v * v, 0);
+    expect(energy(7200, 8000)).toBeLessThan(energy(0, 800) / 100);
   });
 });
 
