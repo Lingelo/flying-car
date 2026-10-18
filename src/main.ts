@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Environment } from './atmosphere/environment';
 import { Rain } from './atmosphere/rain';
+import { AudioSystem } from './audio/audioSystem';
 import { SkyRig } from './atmosphere/sky';
 import { CameraRig } from './camera/rig';
 import { createLoop } from './core/loop';
@@ -36,6 +37,7 @@ window.addEventListener('resize', () => pipeline.resize(container.clientWidth, c
 
 const game = await createGame(scene, pipeline.renderer.domElement, seed);
 const rig = new CameraRig(camera, game.world);
+const audio = new AudioSystem(camera);
 
 let quality: QualityName = 'high';
 function applyQuality(name: QualityName, target: Game = game): void {
@@ -76,6 +78,11 @@ createLoop(
     cityUniforms.uWetness.value = w.wetness;
     cityUniforms.uRain.value = w.rain;
     rain.update(camera, w.rain, QUALITY[quality].rain);
+
+    if (game.input.pressed('radio')) audio.radio.toggle();
+    if (game.input.pressed('radioNext')) audio.radio.next();
+    const emitters = game.traffic.vehicles.map((v) => ({ id: v.id, ...game.traffic.position(v), air: v.lane.kind === 'air' }));
+    audio.update(game.car.state, game.input.axes.throttle, game.input.isHeld('boost'), w.rain, emitters, frameDt);
     pipeline.update(sky.dome, environment.hour, w.cloudiness, cityUniforms.uNight.value, focus);
     pipeline.render(frameDt);
   },
@@ -83,5 +90,5 @@ createLoop(
 
 // Diagnostics for automated browser tests only (?debug=1).
 if (params.has('debug')) {
-  Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality });
+  Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio });
 }
