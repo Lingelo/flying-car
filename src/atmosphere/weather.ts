@@ -1,29 +1,39 @@
 import { Rng } from '../core/random';
 
-export type WeatherKind = 'clear' | 'haze' | 'rain';
-export const WEATHER_KINDS: WeatherKind[] = ['clear', 'haze', 'rain'];
-export const WEATHER_LABELS: Record<WeatherKind, string> = { clear: 'Dégagé', haze: 'Brume / smog', rain: 'Pluie' };
+export type WeatherKind = 'clear' | 'rain' | 'fog' | 'storm';
+export const WEATHER_KINDS: WeatherKind[] = ['clear', 'rain', 'fog', 'storm'];
+export const WEATHER_LABELS: Record<WeatherKind, string> = { clear: 'Temps sec', rain: 'Pluie', fog: 'Brouillard', storm: 'Orage' };
+
+/** A weather name from settings or the URL; the former 'haze' is now fog. */
+export function weatherKind(name: unknown): WeatherKind | null {
+  if (name === 'haze') return 'fog';
+  return WEATHER_KINDS.includes(name as WeatherKind) ? (name as WeatherKind) : null;
+}
 
 export interface WeatherState {
   cloudiness: number;
   /** Exponential fog density. */
   fog: number;
   rain: number;
+  /** 0 to 1: lightning and thunder. */
+  storm: number;
   /** Lags behind the rain: streets stay wet a while after it stops. */
   wetness: number;
 }
 
 export const WEATHER_TARGETS: Record<WeatherKind, Omit<WeatherState, 'wetness'>> = {
-  clear: { cloudiness: 0.12, fog: 0.0011, rain: 0 },
-  haze: { cloudiness: 0.45, fog: 0.0036, rain: 0 },
-  rain: { cloudiness: 0.92, fog: 0.0026, rain: 1 },
+  clear: { cloudiness: 0.12, fog: 0.0011, rain: 0, storm: 0 },
+  rain: { cloudiness: 0.92, fog: 0.0026, rain: 1, storm: 0 },
+  fog: { cloudiness: 0.6, fog: 0.0058, rain: 0, storm: 0 },
+  storm: { cloudiness: 1, fog: 0.0032, rain: 1, storm: 1 },
 };
 
 /** Markov chain: where the weather goes next. */
 const NEXT: Record<WeatherKind, [WeatherKind, number][]> = {
-  clear: [['haze', 0.6], ['rain', 0.4]],
-  haze: [['clear', 0.5], ['rain', 0.5]],
-  rain: [['clear', 0.4], ['haze', 0.6]],
+  clear: [['rain', 0.4], ['fog', 0.35], ['storm', 0.25]],
+  rain: [['clear', 0.35], ['fog', 0.25], ['storm', 0.4]],
+  fog: [['clear', 0.5], ['rain', 0.5]],
+  storm: [['rain', 0.7], ['clear', 0.3]],
 };
 
 /** Seconds for a full transition between two weathers. */
@@ -77,6 +87,7 @@ export class Weather {
     const move = (value: number, to: number, range: number) => value + Math.max(-range, Math.min(range, to - value));
     s.cloudiness = move(s.cloudiness, target.cloudiness, dt / TRANSITION);
     s.rain = move(s.rain, target.rain, dt / TRANSITION);
+    s.storm = move(s.storm, target.storm, dt / TRANSITION);
     s.fog = move(s.fog, target.fog, (dt / TRANSITION) * 0.003);
     s.wetness = s.rain > 0.1 ? move(s.wetness, Math.max(s.wetness, s.rain), dt * WET_RATE) : move(s.wetness, 0, dt * DRY_RATE);
   }

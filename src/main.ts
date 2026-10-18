@@ -21,6 +21,10 @@ import { LandmarkView } from './city/landmarkView';
 import { landmarksNear } from './city/reserved';
 import { signUniforms } from './render/materials/hologram';
 import { facadeUniforms, loadFacadeTextures } from './render/materials/facade';
+import { Lightning } from './atmosphere/lightning';
+import { LightningView } from './atmosphere/lightningView';
+import { toNightHour } from './atmosphere/time';
+import { weatherKind } from './atmosphere/weather';
 import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 import { loadSettings, saveSettings, type Settings } from './settings/store';
@@ -91,7 +95,7 @@ function applySettings(next: Settings): void {
   if (next.quality !== quality || !qualityApplied) applyQuality(next.quality);
   qualityApplied = true;
   environment.autoTime = next.hour === null;
-  if (next.hour !== null) environment.hour = next.hour;
+  if (next.hour !== null) environment.hour = toNightHour(next.hour);
   environment.weather.force(next.weather);
   audio.setVolume(next.masterVolume, next.musicVolume);
 }
@@ -99,8 +103,8 @@ function applySettings(next: Settings): void {
 // being saved: folded in first so the menu starts from the effective values.
 const qualityParam = params.get('quality') as QualityName | null;
 if (qualityParam && QUALITY_NAMES.includes(qualityParam)) settings = { ...settings, quality: qualityParam };
-if (params.has('hour') && Number.isFinite(hourParam)) settings = { ...settings, hour: ((hourParam % 24) + 24) % 24 };
-if (weatherParam === 'clear' || weatherParam === 'haze' || weatherParam === 'rain') settings = { ...settings, weather: weatherParam };
+if (params.has('hour') && Number.isFinite(hourParam)) settings = { ...settings, hour: toNightHour(hourParam) };
+if (weatherKind(weatherParam)) settings = { ...settings, weather: weatherKind(weatherParam) };
 applySettings(settings);
 
 const hud = new Hud(document.body, game.input.bindings);
@@ -160,6 +164,8 @@ if (params.has('bench')) {
 let t = 0;
 let last = performance.now();
 const focus = new THREE.Vector3();
+const lightning = new Lightning(seed);
+const bolt = new LightningView(scene);
 createLoop(
   (dt) => {
     if (paused) return;
@@ -218,6 +224,11 @@ createLoop(
     cityUniforms.uRain.value = w.rain;
     cityUniforms.uHaze.value = Math.min(1, (w.fog - 0.001) / 0.0026 + w.rain * 0.6);
     rain.update(camera, w.rain, QUALITY[quality].rain);
+    // Storm: lightning lights the sky, the fog and the city for a moment, thunder follows.
+    for (const strike of lightning.step(frameDt, w.storm)) audio.thunder(strike.delay, strike.loudness);
+    const flash = lightning.flash * (lightning.bolt ? Math.min(1, 900 / lightning.bolt.distance) : 0);
+    sky.flash(flash, fog);
+    bolt.update(lightning.bolt, lightning.flash, focus);
 
     if (game.input.pressed('radio')) {
       audio.radio.toggle();

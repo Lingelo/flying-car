@@ -9,6 +9,26 @@ export function advanceHour(hour: number, dtSeconds: number, dayLength = DEFAULT
   return (((hour + (dtSeconds * 24) / dayLength) % 24) + 24) % 24;
 }
 
+/** The city lives at night only: the clock runs from NIGHT_START, past midnight, to NIGHT_END. */
+export const NIGHT_START = 20.5;
+export const NIGHT_END = 4.5;
+
+const isNight = (h: number) => h >= NIGHT_START || h <= NIGHT_END;
+
+/** Any hour brought into the night: daytime hours go to the nearer end of the night. */
+export function toNightHour(hour: number): number {
+  const h = ((hour % 24) + 24) % 24;
+  if (isNight(h)) return h;
+  return h - NIGHT_END < NIGHT_START - h ? NIGHT_END : NIGHT_START;
+}
+
+/** Advances the clock through the night; at its end the night starts over (no daylight). */
+export function advanceNightHour(hour: number, dtSeconds: number, dayLength = DEFAULT_DAY_LENGTH): number {
+  const h = advanceHour(hour, dtSeconds, dayLength);
+  if (isNight(h)) return h;
+  return NIGHT_START + (h - NIGHT_END);
+}
+
 /** Unit vector towards the sun: rises in the east (+x) at 06:00, sets in the west at 18:00. */
 export function sunDirection(hour: number): { x: number; y: number; z: number } {
   const theta = ((hour - 6) / 24) * Math.PI * 2;

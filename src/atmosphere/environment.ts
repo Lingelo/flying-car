@@ -1,7 +1,7 @@
-import { advanceHour, DEFAULT_DAY_LENGTH } from './time';
+import { advanceNightHour, DEFAULT_DAY_LENGTH } from './time';
 import { Weather } from './weather';
 
-/** Time of day and weather: the single state every material and light reads (KTD9). */
+/** Night hour and weather: the single state every material and light reads (KTD9). */
 export class Environment {
   hour = 21.5;
   dayLength = DEFAULT_DAY_LENGTH;
@@ -14,7 +14,7 @@ export class Environment {
   }
 
   update(dt: number): void {
-    if (this.autoTime) this.hour = advanceHour(this.hour, dt, this.dayLength);
+    if (this.autoTime) this.hour = advanceNightHour(this.hour, dt, this.dayLength);
     this.weather.step(dt);
   }
 }

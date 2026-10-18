@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceHour, DEFAULT_DAY_LENGTH, litRatio, nightFactor, skyAt, sunDirection } from './time';
+import { advanceHour, advanceNightHour, DEFAULT_DAY_LENGTH, litRatio, nightFactor, NIGHT_END, NIGHT_START, skyAt, sunDirection, toNightHour } from './time';
 
 describe('time of day', () => {
   it('lights the city up as night falls from 17:00 to 21:00 (AE9)', () => {
@@ -38,5 +38,19 @@ describe('time of day', () => {
     expect(dusk[0]).toBeGreaterThan(dusk[2]);
     const night = skyAt(1).zenith;
     expect(Math.max(...night)).toBeLessThan(0.08);
+  });
+
+  it('keeps the city at night: the cycle loops from the end of the night back to its start', () => {
+    for (let h = 0; h < 24; h += 0.25) expect(nightFactor(toNightHour(h))).toBeGreaterThan(0.95);
+    expect(toNightHour(23)).toBe(23);
+    expect(toNightHour(2)).toBe(2);
+    expect(toNightHour(14)).toBe(NIGHT_START);
+    expect(toNightHour(6)).toBe(NIGHT_END);
+    let h = NIGHT_START;
+    for (let t = 0; t < 3 * DEFAULT_DAY_LENGTH; t += 1) {
+      h = advanceNightHour(h, 1);
+      expect(nightFactor(h)).toBeGreaterThan(0.95);
+    }
+    expect(advanceNightHour(NIGHT_END - 0.01, 6)).toBeCloseTo(NIGHT_START + 0.09, 3);
   });
 });

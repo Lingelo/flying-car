@@ -14,7 +14,7 @@ class MemoryStorage {
 describe('settings store', () => {
   it('saves and reloads valid settings', () => {
     const storage = new MemoryStorage();
-    const s = { ...DEFAULT_SETTINGS, quality: 'medium' as const, hour: 18.5, weather: 'rain' as const, musicVolume: 0.3 };
+    const s = { ...DEFAULT_SETTINGS, quality: 'medium' as const, hour: 22.5, weather: 'storm' as const, musicVolume: 0.3 };
     saveSettings(s, storage);
     expect(loadSettings(storage)).toEqual(s);
   });

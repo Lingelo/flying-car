@@ -1,9 +1,10 @@
-import { WEATHER_KINDS, type WeatherKind } from '../atmosphere/weather';
+import { toNightHour } from '../atmosphere/time';
+import { weatherKind, type WeatherKind } from '../atmosphere/weather';
 import { QUALITY_NAMES, type QualityName } from './quality';
 
 export interface Settings {
   quality: QualityName;
-  /** Fixed hour, or null to let the day/night cycle run. */
+  /** Fixed night hour, or null to let the night clock run. */
   hour: number | null;
   /** Forced weather, or null for the dynamic weather. */
   weather: WeatherKind | null;
@@ -28,8 +29,9 @@ export function loadSettings(storage: StorageLike | null): Settings {
     if (!p || typeof p !== 'object') return result;
     if (QUALITY_NAMES.includes(p.quality as QualityName)) result.quality = p.quality as QualityName;
     if (p.hour === null) result.hour = null;
-    else if (p.hour !== undefined) result.hour = clamp(p.hour, 0, 23.99, 21.5);
-    if (p.weather === null || WEATHER_KINDS.includes(p.weather as WeatherKind)) result.weather = (p.weather as WeatherKind | null) ?? null;
+    else if (p.hour !== undefined) result.hour = toNightHour(clamp(p.hour, 0, 23.99, 21.5));
+    if (p.weather === null) result.weather = null;
+    else if (weatherKind(p.weather)) result.weather = weatherKind(p.weather);
     result.masterVolume = clamp(p.masterVolume, 0, 1, DEFAULT_SETTINGS.masterVolume);
     result.musicVolume = clamp(p.musicVolume, 0, 1, DEFAULT_SETTINGS.musicVolume);
   } catch {

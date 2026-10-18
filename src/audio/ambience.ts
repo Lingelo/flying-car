@@ -23,7 +23,10 @@ export class Ambience {
   private readonly windFilter: BiquadFilterNode;
   private readonly rain: GainNode;
 
-  constructor(private readonly ctx: AudioContext, output: AudioNode) {
+  constructor(
+    private readonly ctx: AudioContext,
+    private readonly output: AudioNode,
+  ) {
     const loop = (colour: 'white' | 'brown', filterType: BiquadFilterType, freq: number) => {
       const src = ctx.createBufferSource();
       src.buffer = noiseBuffer(ctx, colour);
@@ -43,6 +46,31 @@ export class Ambience {
     this.wind = wind.gain;
     this.windFilter = wind.filter;
     this.rain = loop('white', 'highpass', 2500).gain;
+  }
+
+  /**
+   * Thunder, heard `delay` seconds from now: a sharp crack when close, then a long low rumble that
+   * rolls (lowpassed brown noise, wobbling gain).
+   */
+  thunder(delay: number, loudness: number): void {
+    const ctx = this.ctx;
+    const start = ctx.currentTime + delay;
+    const duration = 3 + 3 * (1 - loudness);
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 'brown');
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(400 + 1600 * loudness, start);
+    filter.frequency.exponentialRampToValueAtTime(90, start + duration);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.9 * loudness + 0.15, start + 0.04 + 0.4 * (1 - loudness));
+    for (let i = 1; i < 6; i++) gain.gain.linearRampToValueAtTime((0.25 + 0.45 * Math.random()) * (1 - i / 6) * (0.6 + loudness), start + (duration * i) / 6);
+    gain.gain.linearRampToValueAtTime(0, start + duration);
+    src.connect(filter).connect(gain).connect(this.output);
+    src.start(start);
+    src.stop(start + duration + 0.1);
   }
 
   update(input: AmbienceInput): void {

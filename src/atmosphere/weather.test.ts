@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Weather, WEATHER_TARGETS } from './weather';
+import { Weather, WEATHER_TARGETS, weatherKind } from './weather';
 
 const run = (w: Weather, seconds: number, dt = 0.5) => {
   for (let t = 0; t < seconds; t += dt) w.step(dt);
@@ -48,16 +48,36 @@ describe('Weather', () => {
       w.step(1);
       seen.add(w.kind);
     }
-    expect([...seen].sort()).toEqual(['clear', 'haze', 'rain']);
+    expect([...seen].sort()).toEqual(['clear', 'fog', 'rain', 'storm']);
   });
 
   it('holds a forced weather until released', () => {
     const w = new Weather(5, 'clear');
-    w.force('haze');
+    w.force('fog');
     run(w, 3600, 5);
-    expect(w.kind).toBe('haze');
+    expect(w.kind).toBe('fog');
     w.force(null);
     run(w, 3 * 3600, 5);
     expect(w.forced).toBeNull();
+  });
+
+  it('thickens the fog in fog and brings a storm level only in storms', () => {
+    const fog = new Weather(1, 'fog');
+    expect(fog.state.fog).toBeGreaterThan(WEATHER_TARGETS.rain.fog * 1.5);
+    expect(fog.state.storm).toBe(0);
+    const w = new Weather(1, 'rain');
+    w.force('storm');
+    run(w, 90);
+    expect(w.state.storm).toBeCloseTo(1, 2);
+    expect(w.state.rain).toBeCloseTo(1, 2);
+    w.force('clear');
+    run(w, 90);
+    expect(w.state.storm).toBe(0);
+  });
+
+  it('reads the former haze setting as fog', () => {
+    expect(weatherKind('haze')).toBe('fog');
+    expect(weatherKind('storm')).toBe('storm');
+    expect(weatherKind('snow')).toBeNull();
   });
 });

@@ -1,4 +1,9 @@
+import { NIGHT_END, NIGHT_START, toNightHour } from '../atmosphere/time';
 import { WEATHER_KINDS, WEATHER_LABELS, type WeatherKind } from '../atmosphere/weather';
+
+/** The hour slider covers the night only: 0 is NIGHT_START, NIGHT_SPAN is NIGHT_END. */
+const NIGHT_SPAN = NIGHT_END + 24 - NIGHT_START;
+const nightOffset = (hour: number) => (toNightHour(hour) - NIGHT_START + 24) % 24;
 import { ACTIONS, ACTION_LABELS, DEFAULT_BINDINGS, rebind, type Bindings } from '../input/bindings';
 import type { KeyboardSource } from '../input/keyboard';
 import { QUALITY_LABELS, QUALITY_NAMES } from '../settings/quality';
@@ -73,8 +78,8 @@ export class SettingsMenu {
 
         <h2>Ambiance</h2>
         <div class="menu-row"><span>Heure</span><div class="inline">
-          <button data-hour-auto class="${s.hour === null ? 'active' : ''}">Cycle auto</button>
-          <input type="range" min="0" max="23.75" step="0.25" value="${hour}" data-hour aria-label="Heure" />
+          <button data-hour-auto class="${s.hour === null ? 'active' : ''}">Nuit qui avance</button>
+          <input type="range" min="0" max="${NIGHT_SPAN}" step="0.25" value="${nightOffset(hour)}" data-hour aria-label="Heure de la nuit" />
           <output>${formatHour(hour)}</output>
         </div></div>
         <div class="menu-row"><span>Météo</span><div class="segmented">
@@ -104,7 +109,7 @@ export class SettingsMenu {
     on<HTMLButtonElement>('[data-quality]', 'click', (el) => this.update({ quality: el.dataset.quality as Settings['quality'] }));
     on<HTMLButtonElement>('[data-hour-auto]', 'click', () => this.update({ hour: s.hour === null ? this.liveHour : null }));
     on<HTMLInputElement>('[data-hour]', 'input', (el) => {
-      const h = Number(el.value);
+      const h = (NIGHT_START + Number(el.value)) % 24;
       this.settings = { ...this.settings, hour: h };
       (el.nextElementSibling as HTMLOutputElement).textContent = formatHour(h);
       this.root.querySelector('[data-hour-auto]')?.classList.remove('active');

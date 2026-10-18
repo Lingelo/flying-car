@@ -12,15 +12,13 @@ test('the city loads and renders without errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('night falls on the city (AE9)', async ({ page }) => {
+test('the city stays at night, even when asked for noon (R12)', async ({ page }) => {
   await page.goto('/?debug=1&hour=12');
   await waitForFrames(page, 5);
-  const noon = await debugState(page);
-  await page.goto('/?debug=1&hour=22');
+  expect((await debugState(page)).night).toBeGreaterThan(0.95);
+  await page.goto('/?debug=1&hour=22&weather=storm');
   await waitForFrames(page, 5);
-  const night = await debugState(page);
-  expect(noon.night).toBeLessThan(0.05);
-  expect(night.night).toBeGreaterThan(0.95);
+  expect((await debugState(page)).night).toBeGreaterThan(0.95);
 });
 
 test('the car takes off from the keyboard', async ({ page }) => {

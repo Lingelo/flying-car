@@ -17,7 +17,8 @@ Plan produit et technique (Kaizen) :
   sur un toit, collisions qui font rebondir.
 - **Trafic** : quatre paliers de couloirs aériens balisés, voitures au sol avec feux tricolores, les
   véhicules ralentissent puis contournent le joueur ; traînées lumineuses jusqu'à l'horizon.
-- **Ambiance** : cycle jour/nuit (24 min), météo dynamique (dégagé, brume, pluie), rues mouillées avec
+- **Ambiance** : nuit permanente, météo dynamique (temps sec, pluie, brouillard, orage avec éclairs et
+  tonnerre), rues mouillées avec
   reflets de néons et ronds dans les flaques, brouillard de hauteur, bloom, ombres du soleil.
 - **Son** : moteur et propulseurs synthétisés, ville, vent, pluie, passages de véhicules spatialisés,
   radio de synthwave générative.
@@ -61,8 +62,8 @@ Cliquez dans la scène pour regarder à la souris. Les touches se reconfigurent 
 | Paramètre | Effet |
 |---|---|
 | `?seed=42` | autre ville (entier 32 bits) |
-| `?hour=18.5` | heure fixe |
-| `?weather=rain` | `clear`, `haze` ou `rain` |
+| `?hour=23.5` | heure fixe (toujours la nuit : de 20 h 30 à 4 h 30) |
+| `?weather=rain` | `clear` (sec), `rain`, `fog` ou `storm` (orage) |
 | `?quality=medium` | `low`, `medium` ou `high` |
 | `?bench=1` | benchmark : 60 s de vol au-dessus du centre, la nuit sous la pluie, puis moyenne et 1 % bas |
 | `?debug=1` | expose `window.__debug` et `window.__game` (tests navigateur) |

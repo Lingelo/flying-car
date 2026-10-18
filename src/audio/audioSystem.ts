@@ -44,6 +44,11 @@ export class AudioSystem {
     this.radioGain.gain.value = music;
   }
 
+  /** Thunder of a lightning strike (see Lightning). */
+  thunder(delay: number, loudness: number): void {
+    this.ambience.thunder(delay, loudness);
+  }
+
   update(car: CarState, throttle: number, boost: boolean, rain: number, traffic: (Emitter & { air: boolean })[], dt: number): void {
     if (this.listener.context.state !== 'running') return;
     const speed = Math.hypot(car.velocity.x, car.velocity.z);

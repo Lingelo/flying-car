@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+
+const FLASH_LIGHT = new THREE.Color(0.75, 0.82, 1);
+const FLASH_SKY = new THREE.Color(0.45, 0.5, 0.7);
 import { cityUniforms } from '../render/materials/cityUniforms';
 import type { Environment } from './environment';
 import { nightFactor, skyAt, sunDirection } from './time';
@@ -74,6 +77,16 @@ void main() {
     this.dome.renderOrder = -1;
     this.sun.castShadow = false;
     scene.add(this.dome, this.sun, this.sun.target, this.moon, this.moon.target, this.ambient);
+  }
+
+  /** Lightning: lights the sky, the ambient and the fog for a moment (flash in [0, 1]). */
+  flash(flash: number, fog: THREE.FogExp2): void {
+    if (flash <= 0) return;
+    this.ambient.intensity += 4 * flash;
+    this.ambient.color.lerp(FLASH_LIGHT, flash);
+    this.uniforms.uZenith.value.lerp(FLASH_SKY, flash * 0.6);
+    this.uniforms.uHorizon.value.lerp(FLASH_SKY, flash * 0.8);
+    fog.color.lerp(FLASH_SKY, flash * 0.5);
   }
 
   setCloudiness(c: number): void {
