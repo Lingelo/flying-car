@@ -49,7 +49,7 @@ classe RTX 3060 / RX 6600.
 | Monter / descendre (en vol) | Espace / C | RB / LB |
 | Boost | Maj gauche | A |
 | Caméra | V | Select |
-| Mode photo / capturer | P / Entrée | B |
+| Mode photo / capturer | P / Entrée | B (mode photo) |
 | Radio / piste suivante | M / R | ↓ / X |
 | HUD | H | ↑ |
 | Menu (réglages, touches) | Échap | Start |
