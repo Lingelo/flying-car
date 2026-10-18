@@ -1,7 +1,7 @@
 /** Keyboard-bindable actions. Axes come from pairs (forward/back, left/right, up/down). */
 export const ACTIONS = [
   'forward', 'back', 'left', 'right', 'up', 'down', 'boost',
-  'toggleFlight', 'camera', 'photo', 'radio', 'radioNext', 'hud', 'menu',
+  'toggleFlight', 'camera', 'photo', 'capture', 'radio', 'radioNext', 'hud', 'menu',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 export type Bindings = Record<Action, string[]>;
@@ -17,6 +17,7 @@ export const ACTION_LABELS: Record<Action, string> = {
   toggleFlight: 'Sol / vol',
   camera: 'Changer de caméra',
   photo: 'Mode photo',
+  capture: 'Photo : capturer',
   radio: 'Radio marche / arrêt',
   radioNext: 'Piste suivante',
   hud: 'Afficher / masquer le HUD',
@@ -34,6 +35,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   toggleFlight: ['KeyF'],
   camera: ['KeyV'],
   photo: ['KeyP'],
+  capture: ['Enter'],
   radio: ['KeyM'],
   radioNext: ['KeyR'],
   hud: ['KeyH'],

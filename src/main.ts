@@ -3,6 +3,7 @@ import { Environment } from './atmosphere/environment';
 import { Rain } from './atmosphere/rain';
 import { AudioSystem } from './audio/audioSystem';
 import { SkyRig } from './atmosphere/sky';
+import { canvasToPngBlob, downloadBlob, PhotoMode } from './camera/photoMode';
 import { CameraRig } from './camera/rig';
 import { createLoop } from './core/loop';
 import { parseSeed } from './core/seed';
@@ -89,6 +90,22 @@ const menu = new SettingsMenu(document.body, settings, game.input.bindings, game
     paused = false;
   },
 });
+const photo = new PhotoMode(camera, {
+  setPaused: (p) => (paused = p),
+  setHudHidden: (hidden) => {
+    hud.setHidden(hidden);
+    hud.setPhotoHint(hidden);
+  },
+  renderFrame: () => pipeline.render(0),
+  toBlob: (cb) => cb(canvasToPngBlob(pipeline.renderer.domElement)),
+  download: (blob, name) => {
+    downloadBlob(blob, name);
+    hud.flash('PHOTO ENREGISTRÉE');
+  },
+});
+let wheel = 0;
+window.addEventListener('wheel', (e) => (wheel += Math.sign(e.deltaY)), { passive: true });
+
 function openMenu(): void {
   menu.liveHour = environment.hour;
   paused = true;
@@ -125,6 +142,17 @@ createLoop(
     if (game.input.pressed('menu')) {
       menuReleasedLock = !!document.pointerLockElement;
       openMenu();
+    }
+    if (game.input.pressed('photo')) {
+      if (photo.active) photo.exit();
+      else photo.enter(game.car.state);
+    }
+    if (photo.active) {
+      photo.update(game.input.look, wheel - game.input.axes.throttle * frameDt * 12);
+      wheel = 0;
+      if (game.input.pressed('capture')) photo.capture();
+      pipeline.render(frameDt);
+      return;
     }
     if (game.input.pressed('hud')) hud.toggle();
     if (game.input.pressed('camera')) {
@@ -171,5 +199,5 @@ createLoop(
 
 // Diagnostics for automated browser tests only (?debug=1).
 if (params.has('debug')) {
-  Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio, __hud: hud, __menu: menu });
+  Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio, __hud: hud, __menu: menu, __photo: photo });
 }

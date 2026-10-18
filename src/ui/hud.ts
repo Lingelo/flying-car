@@ -36,6 +36,7 @@ export class Hud {
   private readonly toast: HTMLElement;
   private readonly minimap = new Minimap();
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly photoHint = document.createElement('div');
   visible = true;
 
   constructor(parent: HTMLElement, bindings: Bindings) {
@@ -68,6 +69,9 @@ export class Hud {
     q('map').appendChild(this.minimap.canvas);
     this.setBindings(bindings);
     parent.appendChild(this.root);
+    this.photoHint.className = 'hud-photo';
+    this.photoHint.textContent = 'MODE PHOTO · souris : tourner autour · molette / W S : zoom · Entrée : capturer · P : quitter';
+    parent.appendChild(this.photoHint);
     setTimeout(() => this.help.classList.add('faded'), 14000);
   }
 
@@ -87,6 +91,10 @@ export class Hud {
 
   setHidden(hidden: boolean): void {
     this.root.classList.toggle('hidden', hidden || !this.visible);
+  }
+
+  setPhotoHint(visible: boolean): void {
+    this.photoHint.classList.toggle('show', visible);
   }
 
   flash(message: string): void {
