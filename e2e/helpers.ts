@@ -9,6 +9,7 @@ export interface DebugState {
   geometries: number;
   night: number;
   fog: number;
+  atlasReady: boolean;
 }
 
 export const debugState = (page: Page) => page.evaluate(() => (window as unknown as { __debug: DebugState }).__debug);

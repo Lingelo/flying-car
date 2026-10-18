@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { NEON_PALETTE } from './facade';
 import { cityUniforms } from './cityUniforms';
+import { ATLAS_GLSL } from '../signAtlas';
+
+/** Japanese sign atlas, set once the font is loaded (until then signs show pseudo-glyphs). */
+export const signUniforms = {
+  uAtlas: { value: null as THREE.Texture | null },
+  uAtlasReady: { value: 0 },
+};
 
 const palette = `vec3 neonHue(float i) {
   return i < 0.5 ? vec3(${NEON_PALETTE[0].join(',')}) : i < 1.5 ? vec3(${NEON_PALETTE[1].join(',')}) : i < 2.5 ? vec3(${NEON_PALETTE[2].join(',')}) : vec3(${NEON_PALETTE[3].join(',')});
@@ -31,10 +38,13 @@ void main() {
 
 const uniforms = () => THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]);
 
-/** Animated billboards and vertical neon blades, entirely procedural (no texture to license). */
+/**
+ * Signs of Tokyo: vertical blades, banners and giant screens with real Japanese words from the
+ * atlas, in three looks (neon on dark, lit colour panel, white panel with red letters).
+ */
 export function createSignMaterial(): THREE.ShaderMaterial {
   const material = new THREE.ShaderMaterial({
-    uniforms: { ...uniforms(), ...cityUniforms },
+    uniforms: { ...uniforms(), ...cityUniforms, ...signUniforms },
     fog: true,
     side: THREE.DoubleSide,
     vertexShader: vertex,
@@ -42,42 +52,69 @@ export function createSignMaterial(): THREE.ShaderMaterial {
 #include <fog_pars_fragment>
 uniform float uNight;
 uniform float uTime;
+uniform sampler2D uAtlas;
+uniform float uAtlasReady;
 varying vec2 vSignUv;
 varying vec4 vInfo;
 ${palette}
+${ATLAS_GLSL}
+vec3 signFace(float kind, float seed, vec3 hue, vec2 uv, float aspect) {
+  float look = signHash(vec2(seed * 91.0, 3.0));
+  vec4 cell = atlasCell(kind, seed);
+  // Keep the cell's own aspect: letterbox the text inside the sign.
+  vec2 t = atlasText(uAtlas, cell, uv);
+  float crisp = t.x;
+  float glow = t.y;
+  if (look < 0.45) {
+    return vec3(0.012, 0.01, 0.02) + hue * (crisp * 2.2 + glow * 0.8);
+  } else if (look < 0.78) {
+    vec3 panel = hue * 1.1 + 0.08;
+    return mix(panel, vec3(0.02), crisp * 0.92);
+  }
+  vec3 paper = vec3(1.0, 0.95, 0.86) * 1.15;
+  return mix(paper, vec3(0.85, 0.04, 0.07), crisp);
+}
 void main() {
-  bool vertical = vInfo.x > 0.5;
+  float kind = vInfo.x;
   vec3 hue = neonHue(vInfo.y);
   float seed = vInfo.z;
   float aspect = vInfo.w;
   vec2 uv = vSignUv;
-  vec3 col = vec3(0.01, 0.01, 0.02);
-  float border = 1.0 - smoothstep(0.0, 0.035 * (vertical ? 1.0 : 1.0 / aspect), min(min(uv.x, 1.0 - uv.x) * (vertical ? 1.0 : aspect), min(uv.y, 1.0 - uv.y)));
-  if (vertical) {
-    // A column of glyphs, one per cell.
-    float rows = floor(1.0 / aspect * 1.0 + 0.5);
-    vec2 g = vec2(uv.x, uv.y * rows);
-    vec2 cell = floor(g);
-    float on = glyph((fract(g) - 0.15) / 0.7, cell, seed);
-    col += hue * on * 1.4 + hue * border * 1.6;
+  // Double-sided signs read the right way round from behind too.
+  if (!gl_FrontFacing) uv.x = 1.0 - uv.x;
+  vec3 col;
+  bool vertical = kind > 0.5 && kind < 1.5;
+  bool giant = kind > 2.5;
+  float edge = min(min(uv.x, 1.0 - uv.x) * (vertical ? 1.0 : aspect), min(uv.y, 1.0 - uv.y) * (vertical ? 1.0 / aspect : 1.0));
+  float border = 1.0 - smoothstep(0.0, 0.04, edge);
+  if (uAtlasReady > 0.5) {
+    if (vertical) {
+      col = signFace(0.0, seed, hue, uv, aspect);
+    } else if (!giant && aspect > 2.4) {
+      col = signFace(1.0, seed, hue, uv, aspect);
+    } else {
+      // Screens change advert every 6 s; giant ones add an LED grid and rolling colour bands.
+      float slot = floor(uTime / 6.0 + seed * 10.0);
+      float s2 = fract(seed + slot * 0.618);
+      vec3 hue2 = neonHue(floor(signHash(vec2(seed, slot)) * 4.0));
+      vec3 bg = mix(hue * 0.25, hue2 * 0.6, uv.y + 0.25 * sin(uTime * 0.8 + uv.x * 6.0 + seed * 9.0));
+      vec2 t = atlasText(uAtlas, atlasCell(2.0, s2), uv);
+      col = bg * (1.0 - t.x) + vec3(1.6) * t.x + hue2 * t.y * 0.6;
+      if (giant) {
+        vec2 led = fract(uv * vec2(aspect, 1.0) * 90.0);
+        col *= 0.75 + 0.25 * step(0.25, led.x) * step(0.25, led.y);
+        col *= 0.9 + 0.1 * sin(uv.y * 400.0 - uTime * 20.0);
+      }
+    }
+    col += hue * border * 1.2;
   } else {
-    // Rotating ads: a big glyph line, a gradient band and a scrolling ticker, changing every 6 s.
-    float slot = floor(uTime / 6.0 + seed * 10.0);
-    float adLayout = signHash(vec2(slot, seed * 97.0));
-    vec3 hue2 = neonHue(floor(signHash(vec2(seed, slot)) * 4.0));
-    vec3 bg = mix(hue * 0.18, hue2 * 0.35, uv.y + 0.2 * sin(uTime * 0.7 + seed * 6.0));
-    col = bg;
-    vec2 g = vec2(uv.x * aspect * 1.6, (uv.y - 0.35) * 1.6);
-    vec2 cell = floor(g);
-    if (cell.y == 0.0 && adLayout > 0.3) col += hue2 * 1.6 * glyph(fract(g) * 1.1 - 0.05, cell + slot, seed);
-    float tick = step(0.08, uv.y) * step(uv.y, 0.22);
-    vec2 tg = vec2((uv.x * aspect * 6.0) + uTime * 2.0, (uv.y - 0.08) / 0.14);
-    col += hue * tick * glyph(fract(tg), floor(tg), seed + 0.5);
-    col += hue * border * 1.5;
+    // Pseudo-glyph fallback while the Japanese font loads.
+    col = vec3(0.01, 0.01, 0.02);
+    vec2 g = vertical ? vec2(uv.x, uv.y * floor(1.0 / aspect + 0.5)) : vec2(uv.x * aspect * 1.6, (uv.y - 0.35) * 1.6);
+    col += hue * glyph(fract(g) * 1.1 - 0.05, floor(g), seed) * 1.4 + hue * border * 1.5;
   }
-  // Rare flicker of a dying neon.
-  float flicker = signHash(vec2(floor(uTime * 12.0), seed * 50.0)) > 0.985 ? 0.2 : 1.0;
-  col *= mix(0.55, 2.2, uNight) * flicker;
+  float flicker = signHash(vec2(floor(uTime * 12.0), seed * 50.0)) > 0.99 ? 0.25 : 1.0;
+  col *= mix(0.6, 1.9, uNight) * flicker;
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

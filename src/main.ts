@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import '@fontsource/noto-sans-jp/900.css';
+import '@fontsource/noto-sans-jp/700.css';
 import { Environment } from './atmosphere/environment';
 import { Rain } from './atmosphere/rain';
 import { AudioSystem } from './audio/audioSystem';
@@ -13,6 +15,8 @@ import { installHeightFog } from './render/fog';
 import { cityUniforms } from './render/materials/cityUniforms';
 import { RenderPipeline } from './render/pipeline';
 import { PlanarReflection } from './render/reflection';
+import { createSignAtlas } from './render/signAtlas';
+import { signUniforms } from './render/materials/hologram';
 import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 import { loadSettings, saveSettings, type Settings } from './settings/store';
@@ -47,6 +51,13 @@ function renderFrame(dt: number): void {
 window.addEventListener('resize', () => pipeline.resize(container.clientWidth, container.clientHeight));
 
 const game = await createGame(scene, pipeline.renderer.domElement, seed);
+// Japanese signs appear once the font subsets they need are loaded.
+void createSignAtlas()
+  .then((atlas) => {
+    signUniforms.uAtlas.value = atlas;
+    signUniforms.uAtlasReady.value = 1;
+  })
+  .catch((error) => console.warn('sign atlas unavailable, keeping pseudo-glyphs', error));
 
 const rig = new CameraRig(camera, game.world);
 const audio = new AudioSystem(camera);
@@ -231,6 +242,7 @@ if (params.has('debug')) {
       paused,
       night: cityUniforms.uNight.value,
       fog: fog.density,
+      atlasReady: signUniforms.uAtlasReady.value === 1,
     }),
   });
   Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio, __hud: hud, __menu: menu, __photo: photo });
