@@ -47,6 +47,7 @@ function paintFaces(g: THREE.BufferGeometry, colourOf: (c: THREE.Vector3, n: THR
 }
 
 const solid = (g: THREE.BufferGeometry, colour: Rgb) => paintFaces(g, () => colour);
+const flat = (g: THREE.BufferGeometry) => (g.index ? g.toNonIndexed() : g);
 
 const box = (size: [number, number, number], at: [number, number, number], colour: Rgb) =>
   solid(new THREE.BoxGeometry(...size).translate(...at), colour);
@@ -85,7 +86,7 @@ function build(spec: Spec, length: number): { body: THREE.BufferGeometry; lights
   }
   for (const z of spec.wheels.z) for (const s of [-1, 1]) parts.push(...wheel(s * spec.wheels.track, z, spec.wheels.radius, 0.24));
   parts.push(...spec.details);
-  return { body: mergeGeometries(parts.map((p) => p.toNonIndexed()))!, lights: mergeGeometries(spec.lights.map((p) => p.toNonIndexed()))! };
+  return { body: mergeGeometries(parts.map(flat))!, lights: mergeGeometries(spec.lights.map(flat))! };
 }
 
 /** Flying patrol sedan: long nose, cabin bubble set back, skirts hiding the wheels, roof light bar. */

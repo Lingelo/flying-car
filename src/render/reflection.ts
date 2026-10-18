@@ -63,14 +63,14 @@ export class PlanarReflection {
     mirrorCamera(camera, this.camera);
     cityUniforms.uReflectionMatrix.value.multiplyMatrices(this.bias, this.camera.projectionMatrix).multiply(this.camera.matrixWorldInverse);
 
-    // The mirrored view must not sample itself, recompute shadows or show the rain streaks.
+    // The mirrored view must not sample itself or show the rain streaks. Shadows are left to the
+    // pipeline (rendered on demand): a pass that skipped them could sample a shadow map not yet
+    // created, a sampler type mismatch on the first wet frame.
     // Unbind the target while drawing into it (a sampled render target is a WebGL feedback loop).
     cityUniforms.uReflectionOn.value = 0;
     cityUniforms.uReflection.value = null;
     const visible = hide.map((o) => o.visible);
     hide.forEach((o) => (o.visible = false));
-    const shadowAuto = this.renderer.shadowMap.autoUpdate;
-    this.renderer.shadowMap.autoUpdate = false;
     const previous = this.renderer.getRenderTarget();
     try {
       this.renderer.setRenderTarget(this.target);
@@ -79,7 +79,6 @@ export class PlanarReflection {
     } finally {
       // Whatever happens, leave the renderer and the scene as they were.
       this.renderer.setRenderTarget(previous);
-      this.renderer.shadowMap.autoUpdate = shadowAuto;
       hide.forEach((o, i) => (o.visible = visible[i]));
       cityUniforms.uReflection.value = this.target.texture;
     }

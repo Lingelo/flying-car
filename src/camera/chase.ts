@@ -10,6 +10,8 @@ export class ChaseCamera {
   private orbitYaw = 0;
   private orbitPitch = 0.12;
   private idle = 0;
+  /** Share of the boom length in use: drops at once in front of a building, recovers slowly. */
+  private boom = 1;
   private initialised = false;
 
   constructor(private readonly world: CollisionWorld) {}
@@ -36,26 +38,34 @@ export class ChaseCamera {
     const distance = 7.5 + speed * 0.035 + (airborne ? 2 : 0);
     const yaw = s.yaw + this.orbitYaw;
     const pivot = new THREE.Vector3(s.position.x, s.position.y + 1.3, s.position.z);
-    const desired = new THREE.Vector3(
+    const full = new THREE.Vector3(
       pivot.x - Math.sin(yaw) * Math.cos(this.orbitPitch) * distance,
       pivot.y + Math.sin(this.orbitPitch) * distance + 1.2,
       pivot.z - Math.cos(yaw) * Math.cos(this.orbitPitch) * distance,
     );
-    desired.y = Math.max(desired.y, s.floor + 0.6);
+    full.y = Math.max(full.y, s.floor + 0.6);
 
-    // Never let a building hide the car: stop the camera in front of it.
-    const hit = this.world.segmentHit(pivot, desired);
-    if (hit !== null) desired.lerpVectors(pivot, desired, Math.max(0, hit - 0.08));
+    // Never let a building hide the car: shorten the boom at once in front of it, and lengthen it
+    // back slowly once clear, so skimming over roof edges does not make the camera jump.
+    const hit = this.world.segmentHit(pivot, full);
+    const allowed = hit === null ? 1 : Math.max(0, hit - 0.08);
+    this.boom = !this.initialised || allowed < this.boom ? allowed : this.boom + (allowed - this.boom) * damping(2.5, dt);
+    const desired = new THREE.Vector3().lerpVectors(pivot, full, this.boom);
 
-    if (!this.initialised) {
-      this.position.copy(desired);
-      this.initialised = true;
-    } else {
-      dampVector(this.position, desired, hit !== null ? 30 : 9, dt);
-    }
     const fx = Math.sin(s.yaw);
     const fz = Math.cos(s.yaw);
-    this.lookAt.set(s.position.x + fx * 4, s.position.y + 1, s.position.z + fz * 4);
+    const target = new THREE.Vector3(s.position.x + fx * 4, s.position.y + 1, s.position.z + fz * 4);
+    if (!this.initialised) {
+      this.position.copy(desired);
+      this.lookAt.copy(target);
+      this.initialised = true;
+    } else {
+      dampVector(this.position, desired, 9, dt);
+      // Pulled in by a building: follow it closely so the car never disappears.
+      if (allowed < 1) dampVector(this.position, desired, 30, dt);
+      // The aim point is smoothed too: small jolts of the car in flight stay off the screen.
+      dampVector(this.lookAt, target, 14, dt);
+    }
     camera.position.copy(this.position);
     camera.up.set(0, 1, 0);
     camera.lookAt(this.lookAt);
