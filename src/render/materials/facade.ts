@@ -86,7 +86,7 @@ vec3 facadeEmissive;`,
     bool ground = vFacadeUv.y < 4.5;
     windowMask = ground ? 0.0 : win;
     float r = facadeHash(cell + vec2(seed * 917.0, seed * 413.0));
-    float litRatio = mix(0.04, 0.48, uNight);
+    float litRatio = mix(0.03, 0.3, uNight);
     float lit = (1.0 - smoothstep(litRatio - 0.02, litRatio + 0.02, r)) * windowMask;
     lit = mix(lit, litRatio * coverage, far);
     vec3 warm = vec3(1.0, 0.72, 0.42);
@@ -94,7 +94,8 @@ vec3 facadeEmissive;`,
     vec3 neon = neonColor(seed);
     float r2 = facadeHash(cell.yx + seed * 31.0);
     vec3 lightColor = r2 < 0.55 ? warm : r2 < 0.9 ? cool : neon;
-    facadeEmissive += lightColor * lit * mix(0.25, 1.6, uNight);
+    float dim = 0.35 + 0.65 * facadeHash(cell * 1.7 + seed * 53.0);
+    facadeEmissive += lightColor * lit * dim * mix(0.25, 1.4, uNight);
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02, 0.03, 0.05), windowMask);
     // Storefront band at street level.
     if (ground && style != 4) {

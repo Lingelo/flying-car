@@ -2,6 +2,7 @@ import type { GeometryData } from '../render/geometryData';
 import { buildBuildingGeometry } from './buildingMesh';
 import { generateChunk, type Chunk } from './generator';
 import { buildGroundGeometry, type GroundGeometry } from './roadMesh';
+import { buildHologramGeometry, buildSignGeometry, buildSteamParticles, placeSigns, placeSteamVents } from './signage';
 import type { ChunkSource } from './streamer';
 
 /** Chunk data plus its prebuilt geometry, as produced by the worker. */
@@ -12,10 +13,16 @@ export interface ChunkPayload {
   buildings: GeometryData;
   buildingsLod: GeometryData;
   ground: GroundGeometry;
+  signs: GeometryData;
+  holograms: GeometryData;
+  /** (x, y, z, seed) per steam particle. */
+  steam: Float32Array;
 }
 
 export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPayload {
   const chunk = generateChunk(seed, cx, cz);
+  const { x: ox, z: oz } = chunk.origin;
+  const { signs, holograms } = placeSigns(chunk, seed);
   return {
     cx,
     cz,
@@ -23,6 +30,9 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
     buildings: buildBuildingGeometry(chunk, false),
     buildingsLod: buildBuildingGeometry(chunk, true),
     ground: buildGroundGeometry(chunk),
+    signs: buildSignGeometry(signs, ox, oz),
+    holograms: buildHologramGeometry(holograms, ox, oz),
+    steam: buildSteamParticles(placeSteamVents(chunk, seed), ox, oz),
   };
 }
 

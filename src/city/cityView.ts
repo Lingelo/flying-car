@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GeometryData } from '../render/geometryData';
 import { createFacadeMaterial } from '../render/materials/facade';
+import { createHologramMaterial, createSignMaterial, createSteamMaterial } from '../render/materials/hologram';
 import { createGroundMaterial, createRoadMaterial, createWaterMaterial } from '../render/materials/road';
 import type { ChunkPayload } from './payload';
 import { Pool } from './pool';
@@ -24,6 +25,9 @@ export interface ChunkHandle {
   roads: THREE.Mesh;
   ground: THREE.Mesh;
   water: THREE.Mesh;
+  signs: THREE.Mesh;
+  holograms: THREE.Mesh;
+  steam: THREE.Points;
   full?: THREE.BufferGeometry;
   lod?: THREE.BufferGeometry;
 }
@@ -38,6 +42,9 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     road: createRoadMaterial(),
     ground: createGroundMaterial(),
     water: createWaterMaterial(),
+    sign: createSignMaterial(),
+    hologram: createHologramMaterial(),
+    steam: createSteamMaterial(),
   };
   private readonly pool = new Pool<ChunkHandle>(() => {
     const group = new THREE.Group();
@@ -55,6 +62,15 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
       roads: mesh(this.materials.road, false),
       ground: mesh(this.materials.ground, false),
       water: mesh(this.materials.water, false),
+      signs: mesh(this.materials.sign, false),
+      holograms: mesh(this.materials.hologram, false),
+      steam: (() => {
+        const p = new THREE.Points(EMPTY, this.materials.steam);
+        p.matrixAutoUpdate = false;
+        p.frustumCulled = false;
+        group.add(p);
+        return p;
+      })(),
     };
   });
 
@@ -70,6 +86,14 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     h.roads.geometry = toBufferGeometry(payload.ground.roads);
     h.ground.geometry = toBufferGeometry(payload.ground.ground);
     h.water.geometry = toBufferGeometry(payload.ground.water);
+    h.signs.geometry = toBufferGeometry(payload.signs);
+    h.holograms.geometry = toBufferGeometry(payload.holograms);
+    h.holograms.renderOrder = 2;
+    const steam = new THREE.BufferGeometry();
+    const interleaved = new THREE.InterleavedBuffer(payload.steam, 4);
+    steam.setAttribute('position', new THREE.InterleavedBufferAttribute(interleaved, 3, 0));
+    steam.setAttribute('aSeed', new THREE.InterleavedBufferAttribute(interleaved, 1, 3));
+    h.steam.geometry = steam;
     h.group.position.set(payload.chunk.origin.x, 0, payload.chunk.origin.z);
     h.group.updateMatrixWorld(true);
     this.root.add(h.group);
@@ -80,8 +104,11 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     this.root.remove(h.group);
     h.full?.dispose();
     h.lod?.dispose();
-    for (const m of [h.roads, h.ground, h.water]) m.geometry.dispose();
-    h.buildings.geometry = h.roads.geometry = h.ground.geometry = h.water.geometry = EMPTY;
+    for (const m of [h.roads, h.ground, h.water, h.signs, h.holograms, h.steam]) {
+      m.geometry.dispose();
+      m.geometry = EMPTY;
+    }
+    h.buildings.geometry = EMPTY;
     h.full = h.lod = undefined;
     this.pool.release(h);
   }
