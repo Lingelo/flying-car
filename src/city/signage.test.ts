@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateChunk, type Box, type Chunk } from './generator';
-import { placeSigns, placeSteamVents, type Sign } from './signage';
+import { buildSignGeometry, placeSigns, placeSteamVents, type Sign } from './signage';
 
 const onWall = (s: Sign, t: Box) => {
   const eps = 0.5;
@@ -82,6 +82,32 @@ describe('placeSteamVents', () => {
       const onRoad = chunk.roads.some((r) => Math.abs(v.x - r.x) <= r.w / 2 && Math.abs(v.z - r.z) <= r.d / 2);
       expect(onRoad).toBe(true);
     }
+  });
+});
+
+describe('Blade Runner neon', () => {
+  it('turns most banners and blades into neon tubes, keeping some lit panels', () => {
+    let tubes = 0;
+    let panels = 0;
+    for (let x = -6; x < 6; x++)
+      for (let z = -6; z < 6; z++)
+        for (const s of placeSigns(generateChunk(2077, x, z), 2077).signs) {
+          if (s.kind === 'screen') expect(s.look).toBe('screen');
+          else if (s.look === 'tube') tubes++;
+          else panels++;
+        }
+    expect(tubes).toBeGreaterThan(panels);
+    expect(panels).toBeGreaterThan(0);
+  });
+
+  it('puts tubes in the additive layer and panels, screens and tube frames in the solid one', () => {
+    const chunk = generateChunk(2077, 0, 0);
+    const { signs } = placeSigns(chunk, 2077);
+    const { solid, neon } = buildSignGeometry(signs, chunk.origin.x, chunk.origin.z);
+    const tubes = signs.filter((s) => s.look === 'tube').length;
+    expect(neon.position.length / 12).toBe(tubes);
+    // every sign has one solid quad: its panel, screen or the frame behind the tubes
+    expect(solid.position.length / 12).toBe(signs.length);
   });
 });
 

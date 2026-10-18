@@ -6,6 +6,7 @@ import { ATLAS_GLSL } from '../signAtlas';
 /** Japanese sign atlas, set once the font is loaded (until then signs show pseudo-glyphs). */
 export const signUniforms = {
   uAtlas: { value: null as THREE.Texture | null },
+  uTubeAtlas: { value: null as THREE.Texture | null },
   uAtlasReady: { value: 0 },
 };
 
@@ -65,9 +66,7 @@ vec3 signFace(float kind, float seed, vec3 hue, vec2 uv, float aspect) {
   vec2 t = atlasText(uAtlas, cell, uv);
   float crisp = t.x;
   float glow = t.y;
-  if (look < 0.45) {
-    return vec3(0.012, 0.01, 0.02) + hue * (crisp * 2.2 + glow * 0.8);
-  } else if (look < 0.78) {
+  if (look < 0.6) {
     vec3 panel = hue * 1.1 + 0.08;
     return mix(panel, vec3(0.02), crisp * 0.92);
   }
@@ -84,13 +83,25 @@ void main() {
   if (!gl_FrontFacing) uv.x = 1.0 - uv.x;
   vec3 col;
   bool vertical = kind > 0.5 && kind < 1.5;
-  bool giant = kind > 2.5;
+  bool giant = kind > 2.5 && kind < 3.5;
+  if (kind > 3.5) {
+    // Open steel frame carrying neon tubes: border, cross struts and mounting rails.
+    vec2 m = vec2(min(uv.x, 1.0 - uv.x) * aspect, min(uv.y, 1.0 - uv.y));
+    float bar = step(min(m.x, m.y), 0.035);
+    float strut = step(abs(fract(uv.y * 4.0) - 0.5), 0.025 * aspect) + step(abs(uv.x - 0.5) * aspect, 0.03);
+    if (bar + strut < 0.5) discard;
+    gl_FragColor = vec4(vec3(0.05, 0.05, 0.06) * mix(1.0, 0.4, uNight), 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+    return;
+  }
   float edge = min(min(uv.x, 1.0 - uv.x) * (vertical ? 1.0 : aspect), min(uv.y, 1.0 - uv.y) * (vertical ? 1.0 / aspect : 1.0));
   float border = 1.0 - smoothstep(0.0, 0.04, edge);
   if (uAtlasReady > 0.5) {
     if (vertical) {
       col = signFace(0.0, seed, hue, uv, aspect);
-    } else if (!giant && aspect > 2.4) {
+    } else if (!giant && aspect > 1.5) {
       col = signFace(1.0, seed, hue, uv, aspect);
     } else {
       // Screens change advert every 6 s; giant ones add an LED grid and rolling colour bands.
@@ -125,6 +136,92 @@ void main() {
   material.polygonOffsetFactor = -2;
   material.polygonOffsetUnits = -4;
   return material;
+}
+
+/** Neon tubes: hollow glowing letters on their frame, white-hot core and coloured halo (R5). */
+export function createNeonMaterial(): THREE.ShaderMaterial {
+  const material = new THREE.ShaderMaterial({
+    uniforms: { ...uniforms(), ...cityUniforms, ...signUniforms },
+    fog: true,
+    side: THREE.DoubleSide,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: vertex,
+    fragmentShader: `#include <common>
+#include <fog_pars_fragment>
+uniform float uNight;
+uniform float uTime;
+uniform sampler2D uTubeAtlas;
+uniform float uAtlasReady;
+varying vec2 vSignUv;
+varying vec4 vInfo;
+${palette}
+${ATLAS_GLSL}
+void main() {
+  if (uAtlasReady < 0.5) discard;
+  float kind = vInfo.x;
+  vec3 hue = neonHue(vInfo.y);
+  float seed = vInfo.z;
+  float aspect = vInfo.w;
+  vec2 uv = vSignUv;
+  if (!gl_FrontFacing) uv.x = 1.0 - uv.x;
+  bool vertical = kind > 0.5 && kind < 1.5;
+  float cellKind = vertical ? 0.0 : aspect > 1.5 ? 1.0 : 2.0;
+  vec4 c = atlasCell(cellKind, seed);
+  vec3 tube = texture2D(uTubeAtlas, vec2(mix(c.x, c.z, uv.x), mix(c.w, c.y, uv.y))).rgb;
+  // Old neon buzzes: a band of the sign flickers now and then.
+  float band = floor(uv.y * 3.0 + uv.x * 2.0);
+  float buzz = signHash(vec2(floor(uTime * 14.0), seed * 40.0 + band)) > 0.97 ? 0.15 : 1.0;
+  vec3 col = (vec3(1.0, 0.95, 0.9) * tube.r * 2.2 + hue * tube.g * 2.6 + hue * tube.b * 0.9) * buzz;
+  col *= mix(0.45, 1.6, uNight);
+  if (dot(col, vec3(1.0)) < 0.004) discard;
+  gl_FragColor = vec4(col, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  #include <fog_fragment>
+}`,
+  });
+  material.polygonOffset = true;
+  material.polygonOffsetFactor = -4;
+  material.polygonOffsetUnits = -8;
+  return material;
+}
+
+/** Glow of the neons in the humid air: soft additive sprites, stronger in mist and rain (R6). */
+export function createHaloMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: { ...uniforms(), ...cityUniforms, uScale: { value: 900 } },
+    fog: true,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: `#include <common>
+#include <fog_pars_vertex>
+uniform float uScale;
+attribute vec2 aHalo; // size, hue
+varying float vHue;
+void main() {
+  vHue = aHalo.y;
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  gl_PointSize = min(512.0, uScale * aHalo.x / -mvPosition.z);
+  #include <fog_vertex>
+}`,
+    fragmentShader: `#include <common>
+#include <fog_pars_fragment>
+uniform float uNight;
+uniform float uHaze;
+varying float vHue;
+${palette}
+void main() {
+  float d = length(gl_PointCoord - 0.5) * 2.0;
+  float a = exp(-d * d * 4.0) * (1.0 - smoothstep(0.8, 1.0, d));
+  vec3 col = neonHue(vHue) * a * uNight * (0.035 + 0.16 * uHaze);
+  gl_FragColor = vec4(col, 1.0);
+  #include <fog_fragment>
+}`,
+  });
 }
 
 /** Additive holograms floating above roofs: rings, glyphs and scanlines. */

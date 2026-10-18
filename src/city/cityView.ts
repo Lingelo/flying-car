@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { GeometryData } from '../render/geometryData';
 import { createFacadeMaterial } from '../render/materials/facade';
-import { createHologramMaterial, createSignMaterial, createSteamMaterial } from '../render/materials/hologram';
+import { createHaloMaterial, createHologramMaterial, createNeonMaterial, createSignMaterial, createSteamMaterial } from '../render/materials/hologram';
 import { createGroundMaterial, createRoadMaterial, createWaterMaterial } from '../render/materials/road';
 import type { ChunkPayload } from './payload';
 import { Pool } from './pool';
@@ -26,6 +26,8 @@ export interface ChunkHandle {
   ground: THREE.Mesh;
   water: THREE.Mesh;
   signs: THREE.Mesh;
+  neonSigns: THREE.Mesh;
+  halos: THREE.Points;
   holograms: THREE.Mesh;
   steam: THREE.Points;
   railStructure: THREE.Mesh;
@@ -59,6 +61,8 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     ground: createGroundMaterial(),
     water: createWaterMaterial(),
     sign: createSignMaterial(),
+    neon: createNeonMaterial(),
+    halo: createHaloMaterial(),
     hologram: createHologramMaterial(),
     steam: createSteamMaterial(),
     rail: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0.1 }),
@@ -82,6 +86,15 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
       ground: mesh(this.materials.ground, false),
       water: mesh(this.materials.water, false),
       signs: mesh(this.materials.sign, false),
+      neonSigns: mesh(this.materials.neon, false),
+      halos: (() => {
+        const p = new THREE.Points(EMPTY, this.materials.halo);
+        p.matrixAutoUpdate = false;
+        p.frustumCulled = false;
+        p.renderOrder = 5;
+        group.add(p);
+        return p;
+      })(),
       holograms: mesh(this.materials.hologram, false),
       railStructure: mesh(this.materials.rail, true),
       railLights: mesh(this.materials.railLights, false),
@@ -117,6 +130,13 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     h.ground.geometry = toBufferGeometry(payload.ground.ground);
     assign(h.water, payload.ground.water);
     assign(h.signs, payload.signs);
+    assign(h.neonSigns, payload.neonSigns);
+    h.neonSigns.renderOrder = 3;
+    const halos = new THREE.BufferGeometry();
+    const haloData = new THREE.InterleavedBuffer(payload.signHalos, 5);
+    halos.setAttribute('position', new THREE.InterleavedBufferAttribute(haloData, 3, 0));
+    halos.setAttribute('aHalo', new THREE.InterleavedBufferAttribute(haloData, 2, 3));
+    h.halos.geometry = halos;
     assign(h.holograms, payload.holograms);
     assign(h.railStructure, payload.railStructure);
     assign(h.railLights, payload.railLights);
@@ -140,7 +160,7 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     this.root.remove(h.group);
     h.full?.dispose();
     h.lod?.dispose();
-    for (const m of [h.roads, h.ground, h.water, h.signs, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow, h.templeProps, h.templeGlow]) {
+    for (const m of [h.roads, h.ground, h.water, h.signs, h.neonSigns, h.halos, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow, h.templeProps, h.templeGlow]) {
       if (m.geometry !== EMPTY) m.geometry.dispose();
       m.geometry = EMPTY;
       m.visible = true;

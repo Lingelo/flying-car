@@ -8,6 +8,8 @@ export const cityUniforms = {
   uWetness: { value: 0 },
   /** Current rain intensity, for ripples in puddles. */
   uRain: { value: 0 },
+  /** Moisture in the air (fog and rain): how much the neons bloom into halos. */
+  uHaze: { value: 0 },
   uTime: { value: 0 },
   /** Planar reflection of the scene (high quality, wet streets). */
   uReflection: { value: null as Texture | null },

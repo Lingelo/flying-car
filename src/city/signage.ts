@@ -5,6 +5,8 @@ import type { Chunk } from './generator';
 
 export interface Sign {
   kind: 'billboard' | 'vertical' | 'screen';
+  /** Neon tubes on an open frame (Blade Runner), a lit panel, or an LED screen. */
+  look: 'tube' | 'panel' | 'screen';
   /** Attachment point on the wall (centre of a billboard, inner edge of a vertical sign). */
   x: number;
   y: number;
@@ -46,7 +48,9 @@ export function placeSigns(chunk: Chunk, seed: number): { signs: Sign[]; hologra
   for (const building of chunk.buildings) {
     const t = building.tiers[0];
     const placed: Sign[] = [];
-    const add = (sign: Sign) => {
+    const add = (partial: Omit<Sign, 'look'>) => {
+      const look: Sign['look'] = partial.kind === 'screen' ? 'screen' : rng.chance(0.68) ? 'tube' : 'panel';
+      const sign: Sign = { ...partial, look };
       if (placed.some((o) => sameWallOverlap(o, sign))) return false;
       placed.push(sign);
       signs.push(sign);
@@ -146,37 +150,57 @@ export function placeSteamVents(chunk: Chunk, seed: number): SteamVent[] {
   return vents;
 }
 
-/** Quads of the signs relative to the chunk origin; `info` = (kind, hue, seed, aspect). */
-export function buildSignGeometry(signs: Sign[], ox: number, oz: number): GeometryData {
-  const q = new QuadBuilder();
+/**
+ * Sign quads relative to the chunk origin; `info` = (kind, hue, seed, aspect), kind 0 billboard,
+ * 1 vertical blade, 3 screen, 4 frame behind neon tubes. `solid` holds panels, screens and frames,
+ * `neon` the additive tube layer drawn just in front of its frame.
+ */
+export function buildSignGeometry(signs: Sign[], ox: number, oz: number): { solid: GeometryData; neon: GeometryData } {
+  const solid = new QuadBuilder();
+  const neon = new QuadBuilder();
   for (const s of signs) {
-    const x = s.x - ox;
-    const z = s.z - oz;
-    const y0 = s.y - s.h / 2;
-    const y1 = s.y + s.h / 2;
-    const info: [number, number, number, number] = [s.kind === 'billboard' ? 0 : s.kind === 'screen' ? 3 : 1, s.hue, s.seed, s.w / s.h];
-    if (s.kind !== 'vertical') {
-      const off = 0.2;
-      const tx = s.nz;
-      const tz = -s.nx;
-      const hw = s.w / 2;
-      const bx = x + s.nx * off;
-      const bz = z + s.nz * off;
-      q.quad(
-        [[bx - tx * hw, y0, bz - tz * hw], [bx + tx * hw, y0, bz + tz * hw], [bx + tx * hw, y1, bz + tz * hw], [bx - tx * hw, y1, bz - tz * hw]],
-        [s.nx, 0, s.nz],
-        [[0, 0], [1, 0], [1, 1], [0, 1]],
-        [1, 1, 1],
-        info,
-      );
+    const kind = s.kind === 'billboard' ? 0 : s.kind === 'screen' ? 3 : 1;
+    const info: [number, number, number, number] = [kind, s.hue, s.seed, s.w / s.h];
+    const frame: [number, number, number, number] = [4, s.hue, s.seed, s.w / s.h];
+    if (s.look === 'tube') {
+      signQuad(solid, s, ox, oz, frame, 0.15);
+      signQuad(neon, s, ox, oz, info, 0.32);
     } else {
-      // Blade sticking out of the wall, visible from both sides (double-sided material).
-      const ex = x + s.nx * s.w;
-      const ez = z + s.nz * s.w;
-      q.quad([[x, y0, z], [ex, y0, ez], [ex, y1, ez], [x, y1, z]], [s.nz, 0, -s.nx], [[0, 0], [1, 0], [1, 1], [0, 1]], [1, 1, 1], info);
+      signQuad(solid, s, ox, oz, info, 0.2);
     }
   }
-  return q.finish();
+  return { solid: solid.finish(), neon: neon.finish() };
+}
+
+function signQuad(q: QuadBuilder, s: Sign, ox: number, oz: number, info: [number, number, number, number], off: number): void {
+  const x = s.x - ox;
+  const z = s.z - oz;
+  const y0 = s.y - s.h / 2;
+  const y1 = s.y + s.h / 2;
+  const uv: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  if (s.kind !== 'vertical') {
+    const tx = s.nz;
+    const tz = -s.nx;
+    const hw = s.w / 2;
+    const bx = x + s.nx * off;
+    const bz = z + s.nz * off;
+    q.quad([[bx - tx * hw, y0, bz - tz * hw], [bx + tx * hw, y0, bz + tz * hw], [bx + tx * hw, y1, bz + tz * hw], [bx - tx * hw, y1, bz - tz * hw]], [s.nx, 0, s.nz], uv, [1, 1, 1], info);
+  } else {
+    // Blade sticking out of the wall, visible from both sides (double-sided material).
+    const ex = x + s.nx * s.w;
+    const ez = z + s.nz * s.w;
+    q.quad([[x, y0, z], [ex, y0, ez], [ex, y1, ez], [x, y1, z]], [s.nz, 0, -s.nx], uv, [1, 1, 1], info);
+  }
+}
+
+/** Glow in the humid air around every sign: (x, y, z, size, hue) per halo, relative to the chunk. */
+export function buildSignHalos(signs: Sign[], ox: number, oz: number): Float32Array {
+  const out = new Float32Array(signs.length * 5);
+  signs.forEach((s, i) => {
+    const out1 = s.kind === 'vertical' ? s.w / 2 : 1.5;
+    out.set([s.x - ox + s.nx * out1, s.y, s.z - oz + s.nz * out1, Math.max(s.w, s.h) * 1.7, s.hue], i * 5);
+  });
+  return out;
 }
 
 /** Two crossed quads per hologram so it reads from every direction. */

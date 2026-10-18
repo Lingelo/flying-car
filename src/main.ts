@@ -61,7 +61,8 @@ void loadFacadeTextures();
 // Japanese signs appear once the font subsets they need are loaded.
 void createSignAtlas()
   .then((atlas) => {
-    signUniforms.uAtlas.value = atlas;
+    signUniforms.uAtlas.value = atlas.fill;
+    signUniforms.uTubeAtlas.value = atlas.tube;
     signUniforms.uAtlasReady.value = 1;
   })
   .catch((error) => console.warn('sign atlas unavailable, keeping pseudo-glyphs', error));
@@ -213,6 +214,7 @@ createLoop(
     sky.sun.intensity *= 1 - 0.75 * w.cloudiness;
     cityUniforms.uWetness.value = w.wetness;
     cityUniforms.uRain.value = w.rain;
+    cityUniforms.uHaze.value = Math.min(1, (w.fog - 0.001) / 0.0026 + w.rain * 0.6);
     rain.update(camera, w.rain, QUALITY[quality].rain);
 
     if (game.input.pressed('radio')) {

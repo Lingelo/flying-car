@@ -7,7 +7,8 @@ import { buildStreetLifeGeometry, placeStreetLife, streetLifeBoxes } from './str
 import { buildTemple } from './temples';
 import { landmarkBoxes } from './reserved';
 import type { Box } from './generator';
-import { buildHologramGeometry, buildSignGeometry, buildSteamParticles, placeSigns, placeSteamVents } from './signage';
+import { placeGiantHolograms, type GiantHologram } from './holograms';
+import { buildHologramGeometry, buildSignGeometry, buildSignHalos, buildSteamParticles, placeSigns, placeSteamVents } from './signage';
 import type { ChunkSource } from './streamer';
 
 /** Chunk data plus its prebuilt geometry, as produced by the worker. */
@@ -20,6 +21,10 @@ export interface ChunkPayload {
   ground: GroundGeometry;
   failed?: boolean;
   signs: GeometryData;
+  neonSigns: GeometryData;
+  /** (x, y, z, size, hue) per sign halo. */
+  signHalos: Float32Array;
+  giantHolograms: GiantHologram[];
   holograms: GeometryData;
   /** (x, y, z, seed) per steam particle. */
   steam: Float32Array;
@@ -38,6 +43,7 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
   const chunk = generateChunk(seed, cx, cz);
   const { x: ox, z: oz } = chunk.origin;
   const { signs, holograms } = placeSigns(chunk, seed);
+  const signGeometry = buildSignGeometry(signs, ox, oz);
   const rail = railForChunk(seed, cx, cz);
   const railGeometry = buildRailGeometry(rail, ox, oz);
   const life = placeStreetLife(chunk, seed);
@@ -50,7 +56,10 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
     buildings: buildBuildingGeometry(chunk, false),
     buildingsLod: buildBuildingGeometry(chunk, true),
     ground: buildGroundGeometry(chunk),
-    signs: buildSignGeometry(signs, ox, oz),
+    signs: signGeometry.solid,
+    neonSigns: signGeometry.neon,
+    signHalos: buildSignHalos(signs, ox, oz),
+    giantHolograms: placeGiantHolograms(chunk, seed),
     holograms: buildHologramGeometry(holograms, ox, oz),
     steam: buildSteamParticles(placeSteamVents(chunk, seed), ox, oz),
     rail,

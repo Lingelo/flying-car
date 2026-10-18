@@ -73,13 +73,23 @@ vec2 atlasText(sampler2D atlas, vec4 cell, vec2 uv) {
  * Draws every word with the bundled Noto Sans JP: red channel = crisp text, green = soft glow.
  * Waits for the font so no tofu boxes end up in the texture.
  */
-export async function createSignAtlas(): Promise<THREE.CanvasTexture> {
+export async function createSignAtlas(): Promise<{ fill: THREE.CanvasTexture; tube: THREE.CanvasTexture }> {
   const cells = atlasLayout();
   const allText = cells.map((c) => c.word).join('');
   await Promise.all([document.fonts.load(`900 96px ${ATLAS_FONT}`, allText), document.fonts.load(`700 40px ${ATLAS_FONT}`, 'NEO TOKYO')]);
   // fonts.load resolves (empty) even when no face matches: require the bundled face to be loaded.
   const loaded = [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Noto Sans JP' && f.status === 'loaded');
   if (!loaded) throw new Error('Japanese font unavailable');
+  const fill = drawAtlas(cells, 'fill');
+  const tube = drawAtlas(cells, 'tube');
+  return { fill, tube };
+}
+
+/**
+ * 'fill': red = crisp text, green = soft glow (lit panels, screens).
+ * 'tube': red = white-hot core, green = glass tube body, blue = wide halo — hollow neon letters.
+ */
+function drawAtlas(cells: AtlasCell[], mode: 'fill' | 'tube'): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = ATLAS_SIZE;
   const ctx = canvas.getContext('2d')!;
@@ -88,19 +98,23 @@ export async function createSignAtlas(): Promise<THREE.CanvasTexture> {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.globalCompositeOperation = 'lighter';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
 
-  const draw = (fn: () => void) => {
-    // Glow pass in green, then crisp pass in red.
-    ctx.save();
-    ctx.fillStyle = '#00ff00';
-    ctx.shadowColor = '#00ff00';
-    ctx.shadowBlur = 18;
-    fn();
-    ctx.restore();
-    ctx.save();
-    ctx.fillStyle = '#ff0000';
-    fn();
-    ctx.restore();
+  const draw = (fn: (paint: (x: string, y: number, z: number) => void) => void, size: number) => {
+    const passes: [string, number, number][] =
+      mode === 'fill'
+        ? [['#00ff00', 18, 0], ['#ff0000', 0, 0]]
+        : [['#0000ff', 26, size * 0.13], ['#00ff00', 2, size * 0.07], ['#ff0000', 0, size * 0.025]];
+    for (const [colour, blur, width] of passes) {
+      ctx.save();
+      ctx.fillStyle = ctx.strokeStyle = colour;
+      ctx.shadowColor = colour;
+      ctx.shadowBlur = blur;
+      ctx.lineWidth = width;
+      fn((text, x, y) => (width > 0 ? ctx.strokeText(text, x, y) : ctx.fillText(text, x, y)));
+      ctx.restore();
+    }
   };
 
   for (const c of cells) {
@@ -108,17 +122,17 @@ export async function createSignAtlas(): Promise<THREE.CanvasTexture> {
     if (c.kind === 'vertical') {
       const size = Math.min(100, (c.h - 40) / chars.length);
       ctx.font = `900 ${size}px ${ATLAS_FONT}`;
-      draw(() => chars.forEach((ch, i) => ctx.fillText(ch, c.x + c.w / 2, c.y + 20 + size * (i + 0.5))));
+      draw((paint) => chars.forEach((ch, i) => paint(ch, c.x + c.w / 2, c.y + 20 + size * (i + 0.5))), size);
     } else if (c.kind === 'banner') {
       const size = Math.min(84, (c.w - 40) / chars.length);
       ctx.font = `900 ${size}px ${ATLAS_FONT}`;
-      draw(() => ctx.fillText(c.word, c.x + c.w / 2, c.y + c.h / 2));
+      draw((paint) => paint(c.word, c.x + c.w / 2, c.y + c.h / 2), size);
     } else {
       const size = Math.min(110, (c.w - 60) / chars.length);
       ctx.font = `900 ${size}px ${ATLAS_FONT}`;
-      draw(() => ctx.fillText(c.word, c.x + c.w / 2, c.y + c.h * 0.42));
+      draw((paint) => paint(c.word, c.x + c.w / 2, c.y + c.h * 0.42), size);
       ctx.font = `700 34px ${ATLAS_FONT}`;
-      draw(() => ctx.fillText('NEO TOKYO 2077', c.x + c.w / 2, c.y + c.h * 0.8));
+      draw((paint) => paint('NEO TOKYO 2077', c.x + c.w / 2, c.y + c.h * 0.8), 34);
     }
   }
   const texture = new THREE.CanvasTexture(canvas);

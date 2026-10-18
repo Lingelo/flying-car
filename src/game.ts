@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { CityView, type ChunkHandle } from './city/cityView';
 import { TrainView } from './city/trains';
+import { HologramView } from './city/hologramView';
+import type { GiantHologram } from './city/holograms';
 import { districtAt, CHUNK_SIZE, BLOCK_SIZE, type Box } from './city/generator';
 import { WorkerChunkSource, type ChunkPayload } from './city/payload';
 import { ChunkStreamer, type ChunkSink } from './city/streamer';
@@ -29,14 +31,14 @@ class CollidingCity implements ChunkSink<ChunkPayload, ChunkHandle> {
   ) {}
   private keys = new Map<ChunkHandle, string>();
   /** Loaded chunk coordinates, so traffic lanes and beacons follow the streamed area. */
-  readonly loaded = new Map<string, { cx: number; cz: number }>();
+  readonly loaded = new Map<string, { cx: number; cz: number; holograms: GiantHologram[] }>();
   changed = false;
   mount(payload: ChunkPayload, lod: boolean): ChunkHandle {
     const key = `${payload.cx},${payload.cz}`;
     this.world.addStatic(key, chunkBoxes(payload));
     const h = this.view.mount(payload, lod);
     this.keys.set(h, key);
-    this.loaded.set(key, { cx: payload.cx, cz: payload.cz });
+    this.loaded.set(key, { cx: payload.cx, cz: payload.cz, holograms: payload.giantHolograms });
     this.changed = true;
     return h;
   }
@@ -108,6 +110,8 @@ export async function createGame(scene: THREE.Scene, canvas: HTMLCanvasElement, 
 
   const trains = new TrainView(seed);
   scene.add(trains.mesh, trains.windows);
+  const koi = new HologramView();
+  scene.add(koi.mesh);
   const traffic = new TrafficSim({ maxVehicles: MAX_TRAFFIC, seed, areaRadius: 450 });
   const trafficView = new TrafficRender(MAX_TRAFFIC);
   scene.add(trafficView.group);
@@ -125,6 +129,7 @@ export async function createGame(scene: THREE.Scene, canvas: HTMLCanvasElement, 
       for (const b of cached.beacons) beacons.push(b);
     }
     for (const key of laneCache.keys()) if (!sink.loaded.has(key)) laneCache.delete(key);
+    koi.set([...sink.loaded.values()].flatMap((c) => c.holograms));
     traffic.setLanes([...lanes.values()]);
     trafficView.setLanes([...lanes.values()]);
     trafficView.setBeacons(beacons);
