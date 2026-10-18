@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ADDITIVE_FOG_DEFINES } from '../render/fog';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { extrudeProfile, type ProfilePoint } from './bodyKit';
 import {
   buildBrakeDisc, buildCaliper, buildDiffuser, buildRim, buildSplitter, buildTyre, createCarMaterials, type CarMaterials,
 } from './carParts';
@@ -15,7 +16,7 @@ export const WHEEL_POSITIONS: [number, number][] = [
   [-0.86, -1.3],
 ];
 
-type P = [number, number];
+type P = ProfilePoint;
 
 // Side profile (z forward, y up) of an original angular coupe: low wedge nose with a light ridge,
 // flat belt, and a greenhouse rising to a single ridge then falling in one long straight fastback
@@ -49,28 +50,11 @@ function greenhouseWarp(x: number, y: number, z: number): number {
   return bodyWarp(x, BELT, z) * (1 - 0.4 * clamp01((y - BELT) / 0.32));
 }
 
-/** Extrudes a side profile across x in [-hw, hw] with chamfered edges, then warps it. */
-function extrudeProfile(points: P[], hw: number, warp: (x: number, y: number, z: number) => number): THREE.BufferGeometry {
-  const shape = new THREE.Shape(points.map(([z, y]) => new THREE.Vector2(z, y)));
-  const g = new THREE.ExtrudeGeometry(shape, { depth: 2 * (hw - BEVEL), bevelEnabled: true, bevelSize: BEVEL, bevelThickness: BEVEL, bevelSegments: 1, curveSegments: 1 });
-  const pos = g.getAttribute('position') as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    // Shape (sx, sy) extruded along sz becomes (z, y) extruded along -x: a proper rotation.
-    const sx = pos.getX(i);
-    const sy = pos.getY(i);
-    pos.setXYZ(i, warp(hw - BEVEL - pos.getZ(i), sy, sx), sy, sx);
-  }
-  g.deleteAttribute('uv');
-  g.deleteAttribute('normal');
-  g.computeVertexNormals();
-  return g;
-}
-
 /** Lower body (painted) and greenhouse (roof, fastback and glass), as separate geometries. */
 export function buildBodyParts(): { lower: THREE.BufferGeometry; greenhouse: THREE.BufferGeometry } {
   return {
-    lower: extrudeProfile(LOWER, HALF_WIDTH, bodyWarp),
-    greenhouse: extrudeProfile(GREENHOUSE, HALF_WIDTH, greenhouseWarp),
+    lower: extrudeProfile(LOWER, HALF_WIDTH, bodyWarp, BEVEL),
+    greenhouse: extrudeProfile(GREENHOUSE, HALF_WIDTH, greenhouseWarp, BEVEL),
   };
 }
 

@@ -197,7 +197,7 @@ gardant la ville infinie, déterministe et fluide.
 - **Goal:** trois véhicules détaillés dont une voiture volante façon Spinner.
 - **Covers:** R8
 - **Depends on:** U5
-- **Files:** `src/traffic/vehicleShapes.ts`, `src/traffic/trafficRender.test.ts`
+- **Files:** `src/traffic/vehicleShapes.ts`, `src/traffic/vehicleShapes.test.ts`, `src/vehicle/bodyKit.ts`, `src/vehicle/proceduralCar.ts`
 - **Approach:** KTD5, instanciation conservée.
 - **Evidence:** test first (types, dimensions, feux avant/arrière).
 - **Verification:** `npm test -- src/traffic`
