@@ -51,3 +51,8 @@ createLoop(
     renderer.render(scene, camera);
   },
 ).start();
+
+// Diagnostics for automated browser tests only (?debug=1).
+if (new URLSearchParams(location.search).has('debug')) {
+  Object.assign(window, { __game: game, __rig: rig });
+}
