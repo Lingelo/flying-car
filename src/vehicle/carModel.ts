@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { CarState } from './controller';
-import { buildProceduralCar, CAR_LENGTH, WHEEL_RADIUS, type Wheel } from './proceduralCar';
+import { buildProceduralCar, CAR_LENGTH, WHEEL_RADIUS, WHEEL_TUCK, type Wheel } from './proceduralCar';
 
 /** Wheel fold angle for a thruster deployment in [0, 1], eased. */
 export function wheelFold(deploy: number): number {
@@ -33,6 +33,7 @@ export async function createCarVisual(load: ModelLoader = loadRoadsterGlb): Prom
   root.rotation.order = 'YXZ';
   let source: CarVisual['source'] = 'procedural';
   let wheels = procedural.wheels;
+  const rest = wheels.map((w) => w.pivot.position.x);
 
   try {
     const model = await load();
@@ -70,10 +71,14 @@ export async function createCarVisual(load: ModelLoader = loadRoadsterGlb): Prom
       root.rotation.set(-state.pitch, state.yaw, -state.roll);
       const fold = wheelFold(state.deploy);
       const speed = Math.hypot(state.velocity.x, state.velocity.z);
-      for (const w of wheels) {
+      // Folded wheels slide in and up to sit flat under the floor as hover pads.
+      const tuck = fold / (Math.PI / 2);
+      wheels.forEach((w, i) => {
         w.pivot.rotation.z = w.side * fold;
+        w.pivot.position.x = rest[i] + (w.side * WHEEL_TUCK.x - rest[i]) * tuck;
+        w.pivot.position.y = WHEEL_RADIUS + (WHEEL_TUCK.y - WHEEL_RADIUS) * tuck;
         if (state.deploy < 0.5) w.spinner.rotation.x += (speed / WHEEL_RADIUS) * dt;
-      }
+      });
       visual.thrusterGlow = state.deploy;
       procedural.thrusterMaterial.opacity = 0.85 * state.deploy;
       underglow.intensity = 40 * state.deploy;

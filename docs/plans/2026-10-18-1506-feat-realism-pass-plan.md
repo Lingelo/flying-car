@@ -51,9 +51,13 @@ gardant la ville infinie, déterministe et fluide.
   translucides animés flottent entre les tours (poissons koï, kanji, logos).
 
 **Voitures**
-- R7. La roadster du joueur est modélisée finement : carrosserie sculptée, lignes de carrosserie,
-  bouclier, prises d'air, diffuseur, rétroviseurs, verrière, habitacle visible, jantes à rayons avec
-  disques et étriers, pneus, optiques, peinture métallisée à paillettes et vernis.
+- R7. La voiture du joueur est un coupé anguleux original dans l'esprit des photos fournies
+  (prisme facetté, fastback d'un seul trait, bas de caisse noir) et très détaillé à l'avant (barre
+  LED, prise d'air à lames, feux d'angle), sur les côtés (poignées affleurantes, ouïes, répétiteurs,
+  liseré lumineux, montant B) et à l'arrière (barre de feux, tuyères, plaque, catadioptres,
+  diffuseur) ; jantes aéro, disques et étriers ; aucune pièce ne dépasse de la carrosserie. Les
+  roues sont déployées au sol et se replient à plat sous le plancher en vol (patins de
+  sustentation lumineux), puis redescendent pour atterrir.
 - R8. Le trafic compte au moins trois véhicules détaillés (berline volante façon Spinner, utilitaire,
   sportive) avec leurs feux.
 
@@ -66,9 +70,15 @@ gardant la ville infinie, déterministe et fluide.
   fonctionnelle s'ils manquent (repli procédural).
 - R11. Déterminisme par graine conservé ; performance : chaque ajout coûteux suit la qualité.
 
+**Ambiance**
+- R12. La ville est toujours de nuit ; la météo varie entre temps sec, pluie, brouillard et orage
+  (éclairs, tonnerre, pluie battante).
+
 ### Décisions clés
 - **Voitures procédurales détaillées** — gouverne R7, R8. (décidé en séance : choisi plutôt que des
-  modèles Sketchfab CC-BY ou fournis)
+  modèles Sketchfab CC-BY ou fournis ; style anguleux d'après la photo fournie par Angélo LIMA,
+  dessin original sans marque)
+- **Nuit permanente** — gouverne R12. (décidé en séance : « on abandonne le jour »)
 - **Textures CC0 Poly Haven** — accessibles depuis l'environnement ; gouverne R1, R9, R10.
 
 ### Exemples d'acceptation
@@ -100,9 +110,14 @@ gardant la ville infinie, déterministe et fluide.
 - KTD4. **Néons en tubes** : l'atlas trace les lettres en contour (tube) dans un canal et un halo
   large dans un autre, fond transparent ; matériau additif devant une armature métallique ; halos
   volumétriques en sprites additifs dont l'intensité suit l'humidité et le brouillard. Couvre R5, R6.
-- KTD5. **Voitures** : loft à plus haute résolution avec profils multiples, éléments ajoutés en
-  géométrie (bouclier, diffuseur, aileron, rétros, habitacle), jantes à rayons, matériau
-  `MeshPhysicalMaterial` avec paillettes (normal map de bruit) et vernis. Couvre R7, R8.
+- KTD5. **Voitures** : profil latéral extrudé avec chanfreins (passages de roues polygonaux nets par
+  construction) et pavillon facetté séparé, déformés en plan (pincement avant/arrière, rentré de
+  caisse) ; vitres, joints et bas de caisse dans le shader ; détails affleurants calés sur la surface.
+  Le loft lissé initial a été abandonné (découpes de roues en escalier, pièces qui dépassaient).
+  Couvre R7, R8.
+- KTD6. **Nuit et météo** : heure bornée à la nuit, quatre états météo (sec, pluie, brouillard,
+  orage) ; l'orage ajoute des éclairs (flash de lumière et de ciel) et un tonnerre synthétisé décalé.
+  Couvre R12.
 
 ### Contexte et patterns à suivre
 - `src/city/signage.ts`, `src/city/streetLife.ts` (placement pur + géométrie Worker),
@@ -172,7 +187,7 @@ gardant la ville infinie, déterministe et fluide.
 - **Goal:** la voiture du joueur au niveau d'un modèle de jeu.
 - **Covers:** R7
 - **Depends on:** —
-- **Files:** `src/vehicle/proceduralCar.ts`, `src/vehicle/carParts.ts`, `src/vehicle/carModel.test.ts`
+- **Files:** `src/vehicle/proceduralCar.ts`, `src/vehicle/carParts.ts`, `src/vehicle/carModel.ts`, `src/vehicle/carModel.test.ts`
 - **Approach:** KTD5.
 - **Evidence:** test first (pièces présentes, roues repliables, dimensions) ; captures.
 - **Verification:** `npm test -- src/vehicle`
@@ -198,6 +213,17 @@ gardant la ville infinie, déterministe et fluide.
 - **Verification:** `npm test -- src/city`
 - **Slice:** S5
 
+### U8. Nuit permanente et météo à quatre états
+- **Goal:** toujours la nuit ; sec, pluie, brouillard, orage avec éclairs et tonnerre.
+- **Covers:** R12
+- **Depends on:** —
+- **Files:** `src/atmosphere/weather.ts`, `src/atmosphere/weather.test.ts`, `src/atmosphere/time.ts`, `src/atmosphere/time.test.ts`, `src/atmosphere/lightning.ts`, `src/atmosphere/lightning.test.ts`, `src/settings/store.ts`, `src/ui/settingsMenu.ts`, `src/audio/ambience.ts`, `src/main.ts`
+- **Approach:** KTD6.
+- **Evidence:** test first (heure toujours nocturne, transitions entre les quatre états, éclairs
+  déterministes seulement pendant l'orage).
+- **Verification:** `npm test -- src/atmosphere src/settings`
+- **Slice:** S6
+
 <!-- kaizen:verification -->
 ## Contrat de vérification
 - `npm run typecheck`, `npm test`, `npm run build`, `npm run e2e` ; captures jour / nuit / pluie.
@@ -205,4 +231,4 @@ gardant la ville infinie, déterministe et fluide.
 
 <!-- kaizen:done -->
 ## Définition de terminé
-- U1–U7 livrées avec preuve ; R1–R11, AE1–AE4 couverts ; revue Kaizen sans P0/P1 ouvert.
+- U1–U8 livrées avec preuve ; R1–R11, AE1–AE4 couverts ; revue Kaizen sans P0/P1 ouvert.
