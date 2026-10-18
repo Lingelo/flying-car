@@ -12,6 +12,19 @@ export interface TextureSet {
   metres: number;
 }
 
+/** Every photo texture loaded so far, so the quality preset can retune their filtering. */
+const loaded = new Set<THREE.Texture>();
+let anisotropy = 16;
+
+/** Anisotropic filtering of all photo textures (quality preset, capped by the GPU). */
+export function setTextureAnisotropy(level: number): void {
+  anisotropy = level;
+  for (const t of loaded) {
+    t.anisotropy = level;
+    t.needsUpdate = true;
+  }
+}
+
 export const texturePath = (id: string, map: string) => `assets/textures/${id}_${map}.jpg`;
 
 type Loader = (url: string) => Promise<THREE.Texture>;
@@ -27,7 +40,8 @@ export async function loadTextureSet(id: TextureId, load: Loader = defaultLoader
     for (const t of [diff, nor, arm]) {
       if (!(t instanceof THREE.Texture)) continue;
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.anisotropy = 16;
+      t.anisotropy = anisotropy;
+      loaded.add(t);
     }
     if (diff instanceof THREE.Texture) diff.colorSpace = THREE.SRGBColorSpace;
     return { diff, nor, arm, metres: entry.metres };

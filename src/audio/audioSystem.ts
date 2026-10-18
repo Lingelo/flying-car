@@ -39,20 +39,31 @@ export class AudioSystem {
       if (ctx.state !== 'running') void ctx.resume();
       if (!radioStarted) {
         radioStarted = true;
-        if (this.radio.status === 'off' && (e as KeyboardEvent).code !== 'KeyM') this.radio.toggle();
+        if (this.radio.status === 'off' && !this.isRadioKey((e as KeyboardEvent).code ?? '')) this.radio.toggle();
       }
     };
     window.addEventListener('pointerdown', resume);
     window.addEventListener('keydown', resume);
   }
 
+  /** The current radio key(s), set by the game: that key turns the radio on itself. */
+  isRadioKey: (code: string) => boolean = (code) => code === 'KeyM';
+
   setVolume(master: number, music: number): void {
     this.listener.setMasterVolume(master);
     this.radioGain.gain.value = music;
   }
 
+  /** Share of the rain drop impacts to play (follows the rain quality). */
+  setRainDensity(share: number): void {
+    this.ambience.dropDensity = share;
+  }
+
   /** Thunder of a lightning strike (see Lightning). */
   thunder(delay: number, loudness: number): void {
+    // Before the first gesture the context is suspended and its clock stopped: strikes queued
+    // then would all roar at once on resume. A strike nobody could hear stays silent.
+    if (this.listener.context.state !== 'running') return;
     this.ambience.thunder(delay, loudness);
   }
 

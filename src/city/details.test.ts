@@ -52,5 +52,22 @@ describe('roof and wall details', () => {
     const g = buildDetailGeometry(placeDetails(chunks[5], 2077), chunks[5].origin.x, chunks[5].origin.z);
     expect(g.props.position.length).toBeGreaterThan(1000);
     expect(g.glow.position.length).toBeGreaterThan(0);
+    // Chunk-local and finite: within the chunk (cranes may overhang a little), above the ground,
+    // below the tallest roof plus its tallest equipment.
+    const top = Math.max(...chunks[5].buildings.map((b) => b.height)) + 40;
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (const p of [g.props.position, g.glow.position])
+      for (let i = 0; i < p.length; i++) {
+        if (!Number.isFinite(p[i])) throw new Error(`vertex component ${i} is ${p[i]}`);
+        lo[i % 3] = Math.min(lo[i % 3], p[i]);
+        hi[i % 3] = Math.max(hi[i % 3], p[i]);
+      }
+    expect(lo[0]).toBeGreaterThan(-30);
+    expect(hi[0]).toBeLessThan(256 + 30);
+    expect(lo[2]).toBeGreaterThan(-30);
+    expect(hi[2]).toBeLessThan(256 + 30);
+    expect(lo[1]).toBeGreaterThanOrEqual(0);
+    expect(hi[1]).toBeLessThan(top);
   });
 });

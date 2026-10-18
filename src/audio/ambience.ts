@@ -40,6 +40,11 @@ export class Ambience {
   private readonly rainFilter: BiquadFilterNode;
   private readonly sizzle: GainNode;
   private readonly drops: GainNode;
+  /** Share of the drop impacts played (rain quality): fewer audio nodes on low settings. */
+  dropDensity = 1;
+  /** Pre-wired impact chains (filter, envelope, pan) reused in turn: only the source is new. */
+  private readonly ticks: { filter: BiquadFilterNode; env: GainNode; pan: StereoPannerNode }[] = [];
+  private nextTick = 0;
   private gust = 1;
   private nextGustAt = 0;
   private lastUpdate = -1;
@@ -79,6 +84,16 @@ export class Ambience {
     this.drops = ctx.createGain();
     this.drops.gain.value = 1;
     this.drops.connect(dropFilter).connect(output);
+    for (let i = 0; i < 16; i++) {
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.Q.value = 1.2;
+      const env = ctx.createGain();
+      env.gain.value = 0;
+      const pan = ctx.createStereoPanner();
+      filter.connect(env).connect(pan).connect(this.drops);
+      this.ticks.push({ filter, env, pan });
+    }
   }
 
   /**
@@ -134,6 +149,7 @@ export class Ambience {
    */
   private scheduleDrops(level: number, dt: number, now: number): void {
     const rates = rainDropRates(level);
+    rates.drops *= this.dropDensity;
     const count = (rate: number) => {
       const expected = rate * dt;
       return Math.min(8, Math.floor(expected) + (Math.random() < expected % 1 ? 1 : 0));
@@ -148,22 +164,18 @@ export class Ambience {
     }
   }
 
-  /** One impact: a few milliseconds of band-passed noise, panned at random. */
+  /** One impact: a few milliseconds of band-passed noise, panned at random, on a pooled chain. */
   private tick(t: number, centre: number, level: number): void {
     const ctx = this.ctx;
-    const pan = ctx.createStereoPanner();
-    pan.pan.value = Math.random() * 1.6 - 0.8;
-    pan.connect(this.drops);
+    const chain = this.ticks[this.nextTick];
+    this.nextTick = (this.nextTick + 1) % this.ticks.length;
+    chain.pan.pan.setValueAtTime(Math.random() * 1.6 - 0.8, t);
+    chain.filter.frequency.setValueAtTime(centre, t);
+    chain.env.gain.setValueAtTime(level, t);
+    chain.env.gain.exponentialRampToValueAtTime(0.0001, t + 0.004 + Math.random() * 0.01);
     const click = ctx.createBufferSource();
     click.buffer = noiseBuffer(ctx, 'pink');
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = centre;
-    filter.Q.value = 1.2;
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(level, t);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.004 + Math.random() * 0.01);
-    click.connect(filter).connect(env).connect(pan);
+    click.connect(chain.filter);
     click.start(t, Math.random() * 1.9, 0.02);
   }
 

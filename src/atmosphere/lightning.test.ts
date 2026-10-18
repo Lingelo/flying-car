@@ -24,8 +24,19 @@ describe('Lightning', () => {
     expect(thunder.length).toBeGreaterThan(5);
     expect(thunder.length).toBeLessThan(30);
     expect(maxFlash).toBeGreaterThan(0.8);
-    // Sound travels at 343 m/s: the further the bolt, the later the thunder.
     for (const d of thunder) expect(d).toBeGreaterThan(0.5);
+    expect(new Set(thunder.map((d) => d.toFixed(2))).size).toBeGreaterThan(3);
+  });
+
+  it('delays the thunder by the distance of its bolt at the speed of sound', () => {
+    const l = new Lightning(5);
+    let checked = 0;
+    for (let t = 0; t < 120; t += 0.05)
+      for (const strike of l.step(0.05, 1)) {
+        expect(strike.delay).toBeCloseTo(l.bolt!.distance / 343, 6);
+        checked++;
+      }
+    expect(checked).toBeGreaterThan(3);
   });
 
   it('fades the flash out quickly and leaves a bolt only while it flashes', () => {

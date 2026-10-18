@@ -28,7 +28,13 @@ export class Skyline {
     const material = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
       side: THREE.BackSide,
-      transparent: true,
+      // A backdrop drawn with the opaque pass right after the sky dome, before the city: every
+      // real building and the landmark tower always draw over it, whatever the ring radius.
+      transparent: false,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.SrcAlphaFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      depthTest: false,
       depthWrite: false,
       vertexShader: `
 varying vec2 vUv;

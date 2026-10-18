@@ -12,6 +12,16 @@ test('the city loads and renders without errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('starts with procedural materials when the CC0 textures cannot load (AE3)', async ({ page }) => {
+  await page.route('**/assets/textures/**', (route) => route.abort());
+  const errors = collectErrors(page);
+  await page.goto('/?debug=1');
+  await waitForFrames(page, 20);
+  expect((await debugState(page)).activeChunks).toBeGreaterThan(4);
+  // The blocked requests themselves are reported by the browser; nothing else may fail.
+  expect(errors.filter((e) => !e.includes('/assets/textures/'))).toEqual([]);
+});
+
 test('the city stays at night, even when asked for noon (R12)', async ({ page }) => {
   await page.goto('/?debug=1&hour=12');
   await waitForFrames(page, 5);

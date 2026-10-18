@@ -23,6 +23,7 @@ import { signUniforms } from './render/materials/hologram';
 import { facadeUniforms, loadFacadeTextures } from './render/materials/facade';
 import { loadGroundTextures } from './render/materials/road';
 import { loadSurfaceTextures } from './render/materials/surface';
+import { setTextureAnisotropy } from './render/textures';
 import { Lightning } from './atmosphere/lightning';
 import { LightningView } from './atmosphere/lightningView';
 import { Skyline } from './atmosphere/skyline';
@@ -57,7 +58,7 @@ const pipeline = new RenderPipeline(container, scene, camera, sky.sun);
 const reflection = new PlanarReflection(pipeline.renderer);
 /** Mirrored scene first (wet streets, high quality), then the post-processed frame. */
 function renderFrame(dt: number): void {
-  reflection.update(scene, camera, QUALITY[quality].reflections, cityUniforms.uWetness.value, [rain.mesh]);
+  reflection.update(scene, camera, QUALITY[quality].reflections, cityUniforms.uWetness.value, [rain.mesh], pipeline.shadowReady);
   pipeline.render(dt);
 }
 
@@ -83,6 +84,7 @@ const landmarks = new LandmarkView(seed);
 scene.add(landmarks.group);
 const rig = new CameraRig(camera, game.world);
 const audio = new AudioSystem(camera);
+audio.isRadioKey = (code) => game.input.bindings.radio.includes(code);
 
 let quality: QualityName = 'high';
 function applyQuality(name: QualityName): void {
@@ -91,6 +93,9 @@ function applyQuality(name: QualityName): void {
   pipeline.setQuality(name);
   game.streamer.setRadius(q.ringRadius, q.lodRadius);
   game.traffic.setMaxVehicles(q.traffic);
+  setTextureAnisotropy(Math.min(q.anisotropy, pipeline.renderer.capabilities.getMaxAnisotropy()));
+  sky.setDetail(q.skyDetail);
+  audio.setRainDensity(q.rain);
 }
 
 const storage = safeLocalStorage();

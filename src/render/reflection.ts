@@ -50,7 +50,7 @@ export class PlanarReflection {
   }
 
   /** Renders the mirrored scene, or disables reflections when not needed. */
-  update(scene: THREE.Scene, camera: THREE.PerspectiveCamera, enabled: boolean, wetness: number, hide: THREE.Object3D[]): void {
+  update(scene: THREE.Scene, camera: THREE.PerspectiveCamera, enabled: boolean, wetness: number, hide: THREE.Object3D[], shadowReady = true): void {
     if (!reflectionActive(enabled, wetness)) {
       cityUniforms.uReflectionOn.value = 0;
       return;
@@ -63,9 +63,11 @@ export class PlanarReflection {
     mirrorCamera(camera, this.camera);
     cityUniforms.uReflectionMatrix.value.multiplyMatrices(this.bias, this.camera.projectionMatrix).multiply(this.camera.matrixWorldInverse);
 
-    // The mirrored view must not sample itself or show the rain streaks. Shadows are left to the
-    // pipeline (rendered on demand): a pass that skipped them could sample a shadow map not yet
-    // created, a sampler type mismatch on the first wet frame.
+    // The mirrored view must not sample itself or show the rain streaks, nor redo the shadow pass
+    // (shadows are world-space, the main pass's map is valid) — except before the shadow map
+    // exists: skipping it then would sample a missing map (sampler type mismatch).
+    const shadowAuto = this.renderer.shadowMap.autoUpdate;
+    if (shadowReady) this.renderer.shadowMap.autoUpdate = false;
     // Unbind the target while drawing into it (a sampled render target is a WebGL feedback loop).
     cityUniforms.uReflectionOn.value = 0;
     cityUniforms.uReflection.value = null;
@@ -79,6 +81,7 @@ export class PlanarReflection {
     } finally {
       // Whatever happens, leave the renderer and the scene as they were.
       this.renderer.setRenderTarget(previous);
+      this.renderer.shadowMap.autoUpdate = shadowAuto;
       hide.forEach((o, i) => (o.visible = visible[i]));
       cityUniforms.uReflection.value = this.target.texture;
     }

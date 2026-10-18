@@ -21,6 +21,7 @@ export class SkyRig {
     uNight: cityUniforms.uNight,
     uTime: cityUniforms.uTime,
     uCloudiness: { value: 0 },
+    uSkyDetail: { value: 1 },
   };
 
   constructor(scene: THREE.Scene) {
@@ -44,6 +45,7 @@ uniform vec3 uSunColor;
 uniform float uNight;
 uniform float uTime;
 uniform float uCloudiness;
+uniform float uSkyDetail;
 varying vec3 vDir;
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -70,7 +72,8 @@ void main() {
   if (up > 0.0) {
   vec2 cp = d.xz / max(d.y, 0.04) * 1.2;
   vec2 wind = vec2(uTime * 0.012, uTime * 0.004);
-  vec2 warp = vec2(fbm(cp * 0.8 + wind), fbm(cp * 0.8 + 5.2 - wind));
+  // Low quality: no domain warp (two fBm fewer), no searchlights.
+  vec2 warp = uSkyDetail > 0.5 ? vec2(fbm(cp * 0.8 + wind), fbm(cp * 0.8 + 5.2 - wind)) : vec2(0.0);
   float n = fbm(cp + warp * 1.6 + wind * 2.0);
   float cover = mix(0.62, 0.36, uCloudiness);
   float dens = smoothstep(cover, cover + 0.3, n);
@@ -85,6 +88,7 @@ void main() {
   cloudCol *= mix(1.15, 0.5, smoothstep(0.45, 1.0, dens * (0.6 + 0.6 * detail)));
   // Searchlights sweeping the cloud base.
   for (int i = 0; i < 3; i++) {
+    if (uSkyDetail < 0.5) break;
     float fi = float(i);
     float a = uTime * (0.07 + 0.03 * fi) + fi * 2.1;
     vec2 centre = vec2(cos(a), sin(a * 1.3)) * (2.5 + fi * 1.5);
@@ -122,6 +126,11 @@ void main() {
     this.uniforms.uZenith.value.lerp(FLASH_SKY, flash * 0.6);
     this.uniforms.uHorizon.value.lerp(FLASH_SKY, flash * 0.8);
     fog.color.lerp(FLASH_SKY, flash * 0.5);
+  }
+
+  /** Full smog clouds and searchlights, or a cheaper single-layer sky (low quality). */
+  setDetail(on: boolean): void {
+    this.uniforms.uSkyDetail.value = on ? 1 : 0;
   }
 
   setCloudiness(c: number): void {

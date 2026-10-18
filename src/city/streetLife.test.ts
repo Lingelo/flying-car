@@ -69,7 +69,12 @@ describe('street life', () => {
     for (const c of findChunks('neon')) {
       const life = placeStreetLife(c, 2077);
       for (const l of life.lanterns)
-        expect(life.canopies.some((k) => Math.abs((l.x - k.x) * k.nx + (l.z - k.z) * k.nz - (k.depth - 0.15)) < 0.01)).toBe(true);
+        expect(
+          life.canopies.some(
+            // Under the front edge (0.18 m lower than the back), on a 10 cm cord, 56 cm tall.
+            (k) => Math.abs((l.x - k.x) * k.nx + (l.z - k.z) * k.nz - (k.depth - 0.15)) < 0.01 && Math.abs(l.y + 0.56 + 0.1 - (k.y - 0.18)) < 0.01,
+          ),
+        ).toBe(true);
     }
   });
 

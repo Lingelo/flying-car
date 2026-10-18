@@ -142,6 +142,11 @@ export class RenderPipeline {
     }
   }
 
+  /** True once the sun's shadow map exists (or shadows are off): other passes may skip it. */
+  get shadowReady(): boolean {
+    return !this.sun.castShadow || this.sun.shadow.map !== null;
+  }
+
   render(dt: number): void {
     this.composer.render(dt);
   }

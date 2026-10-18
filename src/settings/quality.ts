@@ -13,6 +13,10 @@ export interface QualityPreset {
   smaa: boolean;
   /** Share of the rain drops drawn. */
   rain: number;
+  /** Anisotropic filtering of photo textures. */
+  anisotropy: number;
+  /** Domain-warped smog clouds and searchlights in the sky (off: a single noise layer). */
+  skyDetail: boolean;
   /** Streamed chunks around the player, and where the simplified LOD starts. */
   ringRadius: number;
   lodRadius: number;
@@ -23,9 +27,9 @@ export interface QualityPreset {
 }
 
 export const QUALITY: Record<QualityName, QualityPreset> = {
-  low: { ao: 'off', reflections: false, shadows: 0, bloom: false, smaa: false, rain: 0.35, ringRadius: 3, lodRadius: 2, traffic: 110, maxPixelRatio: 0.85, minPixelRatio: 0.6 },
-  medium: { ao: 'half', reflections: false, shadows: 1024, bloom: true, smaa: true, rain: 0.65, ringRadius: 4, lodRadius: 3, traffic: 190, maxPixelRatio: 1, minPixelRatio: 0.75 },
-  high: { ao: 'full', reflections: true, shadows: 2048, bloom: true, smaa: true, rain: 1, ringRadius: 5, lodRadius: 3, traffic: 260, maxPixelRatio: 1.5, minPixelRatio: 1 },
+  low: { ao: 'off', reflections: false, shadows: 0, bloom: false, smaa: false, rain: 0.35, anisotropy: 4, skyDetail: false, ringRadius: 3, lodRadius: 2, traffic: 110, maxPixelRatio: 0.85, minPixelRatio: 0.6 },
+  medium: { ao: 'half', reflections: false, shadows: 1024, bloom: true, smaa: true, rain: 0.65, anisotropy: 8, skyDetail: true, ringRadius: 4, lodRadius: 3, traffic: 190, maxPixelRatio: 1, minPixelRatio: 0.75 },
+  high: { ao: 'full', reflections: true, shadows: 2048, bloom: true, smaa: true, rain: 1, anisotropy: 16, skyDetail: true, ringRadius: 5, lodRadius: 3, traffic: 260, maxPixelRatio: 1.5, minPixelRatio: 1 },
 };
 
 /** Rendering pixel ratio: the device ratio bounded by the preset. */
