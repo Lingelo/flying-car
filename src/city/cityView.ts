@@ -78,6 +78,11 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     this.root.name = 'city';
   }
 
+  /** Chunk mesh sets ever allocated: flat once the pool is warm (memory stays bounded). */
+  get pooled(): number {
+    return this.pool.created;
+  }
+
   mount(payload: ChunkPayload, lod: boolean): ChunkHandle {
     const h = this.pool.acquire();
     h.full = toBufferGeometry(payload.buildings);

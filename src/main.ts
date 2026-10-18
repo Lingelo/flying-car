@@ -5,6 +5,7 @@ import { AudioSystem } from './audio/audioSystem';
 import { SkyRig } from './atmosphere/sky';
 import { canvasToPngBlob, downloadBlob, PhotoMode } from './camera/photoMode';
 import { CameraRig } from './camera/rig';
+import { Benchmark } from './core/bench';
 import { createLoop } from './core/loop';
 import { parseSeed } from './core/seed';
 import { createGame, safeLocalStorage, type Game } from './game';
@@ -118,6 +119,15 @@ document.addEventListener('pointerlockchange', () => {
   menuReleasedLock = false;
 });
 
+let frames = 0;
+let bench: Benchmark | null = null;
+if (params.has('bench')) {
+  const gl = pipeline.renderer.getContext();
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'GPU inconnu';
+  bench = new Benchmark(game, environment, () => quality, gpu);
+}
+
 let t = 0;
 let last = performance.now();
 const focus = new THREE.Vector3();
@@ -133,6 +143,8 @@ createLoop(
     const now = performance.now();
     const frameDt = Math.min(0.1, (now - last) / 1000);
     last = now;
+    frames++;
+    bench?.frame(frameDt);
     game.frame();
     if (menu.isOpen) {
       if (game.input.pressed('menu')) menu.close();
@@ -199,5 +211,8 @@ createLoop(
 
 // Diagnostics for automated browser tests only (?debug=1).
 if (params.has('debug')) {
+  Object.defineProperty(window, '__debug', {
+    get: () => ({ frames, activeChunks: game.streamer.active.size, pooled: game.city.pooled, mode: game.car.state.mode, paused }),
+  });
   Object.assign(window, { __game: game, __rig: rig, __env: environment, __pipeline: pipeline, __applyQuality: applyQuality, __audio: audio, __hud: hud, __menu: menu, __photo: photo });
 }

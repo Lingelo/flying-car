@@ -11,7 +11,7 @@ import { CollisionWorld } from './physics/collide';
 import { beaconsForChunk, lanesForChunk, type Lane } from './traffic/lanes';
 import { TrafficSim } from './traffic/sim';
 import { TrafficRender } from './traffic/trafficRender';
-import { CarController } from './vehicle/controller';
+import { CarController, type DriveInput } from './vehicle/controller';
 import { createCarVisual, type CarVisual } from './vehicle/carModel';
 
 /** Static collision boxes of a chunk: building tiers and skywalks. */
@@ -74,6 +74,8 @@ export interface Game {
   trafficView: TrafficRender;
   streamer: ChunkStreamer<ChunkPayload, ChunkHandle>;
   city: CityView;
+  /** When set, drives the car instead of the player (benchmark flight). */
+  autopilot: DriveInput | null;
   /** Fixed-step simulation. */
   step(dt: number): void;
   /** Once per rendered frame, before the simulation steps. */
@@ -129,6 +131,7 @@ export async function createGame(scene: THREE.Scene, canvas: HTMLCanvasElement, 
     trafficView,
     streamer,
     city,
+    autopilot: null,
     frame() {
       input.update(firstGamepad());
       if (input.pressed('toggleFlight')) toggleRequested = true;
@@ -149,7 +152,7 @@ export async function createGame(scene: THREE.Scene, canvas: HTMLCanvasElement, 
       world.setVehicles(traffic.obstaclesNear(s.position, 40));
       const prev = { ...car.state.position };
       car.state.floor = world.floorAt(prev.x, prev.z, prev.y);
-      car.step(dt, { throttle: input.axes.throttle, steer: input.axes.steer, lift: input.axes.lift, boost: input.isHeld('boost') });
+      car.step(dt, game.autopilot ?? { throttle: input.axes.throttle, steer: input.axes.steer, lift: input.axes.lift, boost: input.isHeld('boost') });
       world.resolveCar(car, prev);
       visual.update(car.state, dt, input.axes.throttle < 0 && car.forwardSpeed > 1);
     },
