@@ -5,6 +5,7 @@ import { buildGroundGeometry, type GroundGeometry } from './roadMesh';
 import { buildRailGeometry, railForChunk, type RailSegment } from './rail';
 import { buildStreetLifeGeometry, placeStreetLife, streetLifeBoxes } from './streetLife';
 import { buildTemple } from './temples';
+import { buildDetailGeometry, placeDetails } from './details';
 import { landmarkBoxes } from './reserved';
 import type { Box } from './generator';
 import { placeGiantHolograms, type GiantHologram } from './holograms';
@@ -37,6 +38,9 @@ export interface ChunkPayload {
   propBoxes: Box[];
   templeProps: GeometryData;
   templeGlow: GeometryData;
+  /** Roof and wall equipment (R4). */
+  detailProps: GeometryData;
+  detailGlow: GeometryData;
 }
 
 export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPayload {
@@ -49,6 +53,7 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
   const life = placeStreetLife(chunk, seed);
   const lifeGeometry = buildStreetLifeGeometry(life, ox, oz);
   const temple = buildTemple(seed, chunk);
+  const details = buildDetailGeometry(placeDetails(chunk, seed), ox, oz);
   return {
     cx,
     cz,
@@ -70,6 +75,8 @@ export function buildChunkPayload(seed: number, cx: number, cz: number): ChunkPa
     propBoxes: [...streetLifeBoxes(life), ...temple.boxes, ...landmarkBoxes(seed, cx, cz)],
     templeProps: temple.props,
     templeGlow: temple.glow,
+    detailProps: details.props,
+    detailGlow: details.glow,
   };
 }
 

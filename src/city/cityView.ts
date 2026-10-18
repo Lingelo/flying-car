@@ -35,6 +35,8 @@ export interface ChunkHandle {
   railLights: THREE.Mesh;
   streetProps: THREE.Mesh;
   streetGlow: THREE.Mesh;
+  detailProps: THREE.Mesh;
+  detailGlow: THREE.Mesh;
   templeProps: THREE.Mesh;
   templeGlow: THREE.Mesh;
   full?: THREE.BufferGeometry;
@@ -101,6 +103,8 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
       railLights: mesh(this.materials.railLights, false),
       streetProps: mesh(this.materials.props, false),
       streetGlow: mesh(this.materials.railLights, false),
+      detailProps: mesh(this.materials.props, false),
+      detailGlow: mesh(this.materials.railLights, false),
       templeProps: mesh(this.materials.props, true),
       templeGlow: mesh(this.materials.railLights, false),
       steam: (() => {
@@ -143,6 +147,9 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     assign(h.railLights, payload.railLights);
     assign(h.streetProps, payload.streetProps);
     assign(h.streetGlow, payload.streetGlow);
+    assign(h.detailProps, payload.detailProps);
+    assign(h.detailGlow, payload.detailGlow);
+    if (lod) h.detailProps.visible = false;
     assign(h.templeProps, payload.templeProps);
     assign(h.templeGlow, payload.templeGlow);
     h.holograms.renderOrder = 2;
@@ -161,7 +168,7 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     this.root.remove(h.group);
     h.full?.dispose();
     h.lod?.dispose();
-    for (const m of [h.roads, h.ground, h.water, h.signs, h.neonSigns, h.halos, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow, h.templeProps, h.templeGlow]) {
+    for (const m of [h.roads, h.ground, h.water, h.signs, h.neonSigns, h.halos, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow, h.templeProps, h.templeGlow, h.detailProps, h.detailGlow]) {
       if (m.geometry !== EMPTY) m.geometry.dispose();
       m.geometry = EMPTY;
       m.visible = true;
@@ -174,5 +181,7 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
   setLod(h: ChunkHandle, lod: boolean): void {
     h.buildings.geometry = (lod ? h.lod : h.full) ?? EMPTY;
     h.buildings.castShadow = !lod;
+    // Roof and wall equipment is too small to read from afar.
+    h.detailProps.visible = !lod && h.detailProps.geometry !== EMPTY;
   }
 }
