@@ -8,6 +8,26 @@ import { vehicleShapes } from './vehicleShapes';
 const PAINTS = [0x15171c, 0xd9dde3, 0x7a0f1d, 0x1d3f7a, 0x2b2b30, 0xb3a17a, 0x0f4d4a, 0x5a2a7a].map((c) => new THREE.Color(c));
 const TIER_COLORS = [NEON_PALETTE[1], NEON_PALETTE[0], NEON_PALETTE[3], NEON_PALETTE[2]].map(([r, g, b]) => new THREE.Color(r * 3, g * 3, b * 3));
 
+/** Corridor lights: small navigation lamps that blink in a slow wave along each lane. */
+function beaconMaterial(): THREE.MeshBasicMaterial {
+  const material = new THREE.MeshBasicMaterial({ toneMapped: false });
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = beaconTime;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nvarying float vBlink;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vec3 beaconAt = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+vBlink = 0.25 + 0.75 * step(0.82, fract(uTime * 0.8 - (beaconAt.x + beaconAt.z) * 0.004));`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vBlink;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= vBlink * 1.6;');
+  };
+  return material;
+}
+
+/** Shared clock of the corridor lights. */
+export const beaconTime = { value: 0 };
+
 /** Instanced vehicles, corridor beacons and far light streaks. */
 export class TrafficRender {
   readonly group = new THREE.Group();
@@ -38,7 +58,7 @@ export class TrafficRender {
       this.lights.push(lights);
       this.group.add(body, lights);
     }
-    this.beacons = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.7), new THREE.MeshBasicMaterial({ toneMapped: false }), beaconCapacity);
+    this.beacons = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 8, 6), beaconMaterial(), beaconCapacity);
     this.beacons.count = 0;
     this.beacons.frustumCulled = false;
     this.group.add(this.beacons, this.streaks.points);
@@ -62,6 +82,7 @@ export class TrafficRender {
   }
 
   update(sim: TrafficSim, time: number, centre?: { x: number; z: number }): void {
+    beaconTime.value = time;
     const counts = this.bodies.map(() => 0);
     for (const v of sim.vehicles) {
       const index = counts[v.type];

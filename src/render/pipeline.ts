@@ -96,7 +96,7 @@ export class RenderPipeline {
     // Convolution effects (SMAA) cannot share a pass with others.
     const effects = [];
     if (q.bloom) effects.push(new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.82, luminanceSmoothing: 0.25, intensity: 1.15, radius: 0.72 }));
-    effects.push(new VignetteEffect({ darkness: 0.42, offset: 0.32 }));
+    effects.push(new VignetteEffect({ darkness: 0.55, offset: 0.3 }));
     effects.push(new ToneMappingEffect({ mode: ToneMappingMode.AGX }));
     this.effectPasses = [new EffectPass(this.camera, ...effects)];
     if (q.smaa) this.effectPasses.push(new EffectPass(this.camera, new SMAAEffect()));

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ADDITIVE_FOG_DEFINES } from '../render/fog';
 import { cityUniforms } from '../render/materials/cityUniforms';
 import { NEON_PALETTE } from '../render/materials/facade';
 import type { GiantHologram } from './holograms';
@@ -26,6 +27,7 @@ export class HologramView {
       depthWrite: false,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
+    defines: ADDITIVE_FOG_DEFINES,
       vertexShader: `#include <common>
 #include <fog_pars_vertex>
 uniform float uTime;

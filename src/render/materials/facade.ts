@@ -139,6 +139,16 @@ float facadeRough;`,
   if (uFacadeReady > 0.5) {
     albedo = wallAlbedo(m, wallUv, gx, gy).rgb * mix(vec3(1.0), tint, 0.35);
     facadeTangentNormal = wallNormal(m, wallUv, gx, gy).xyz * 2.0 - 1.0;
+    // Up close, a finer sample of the same material adds grain and relief where the base texture
+    // would turn soft (detail layer, faded out with distance).
+    float near = 1.0 - smoothstep(12.0, 45.0, distance(vFacadeWorld, cameraPosition));
+    if (near > 0.0) {
+      vec2 duv = wallUv * 4.3 + 0.31;
+      vec3 detail = wallAlbedo(m, duv, gx * 4.3, gy * 4.3).rgb;
+      albedo *= mix(1.0, clamp(dot(detail, vec3(0.333)) * 2.2, 0.55, 1.45), near * 0.6);
+      vec3 dn = wallNormal(m, duv, gx * 4.3, gy * 4.3).xyz * 2.0 - 1.0;
+      facadeTangentNormal = normalize(vec3(facadeTangentNormal.xy + dn.xy * 0.6 * near, facadeTangentNormal.z));
+    }
   } else {
     albedo = diffuseColor.rgb * (0.85 + 0.3 * facadeNoise(wallUv * 0.7));
   }
@@ -188,20 +198,33 @@ float facadeRough;`,
       vec2 entry = (f - lo) / (hi - lo) * cellSize;
       float lightPanel;
       vec3 roomCol = interiorRoom(entry, dir, vec3(cellSize, 4.0 + roomSeed * 3.0), roomSeed, lightPanel);
-      float litRatio = mix(0.03, 0.32, uNight);
+      float litRatio = mix(0.03, 0.15, uNight);
       bool lit = roomSeed < litRatio;
       vec3 warm = vec3(1.0, 0.78, 0.55);
       vec3 cool = vec3(0.7, 0.85, 1.0);
       vec3 lamp = fract(roomSeed * 91.0) < 0.6 ? warm : fract(roomSeed * 91.0) < 0.92 ? cool : neonColor(roomSeed);
-      // Blinds pulled down some way, glowing when the room is lit.
-      float blind = fract(roomSeed * 47.0) < 0.45 ? fract(roomSeed * 17.0) * 0.8 : 0.0;
+      // Window dressing: sheer curtains drawn (glowing with the lamp, with folds), blinds pulled
+      // down some way, or bare glass onto the room.
+      float dressing = fract(roomSeed * 47.0);
+      float wx = (f.x - lo.x) / (hi.x - lo.x);
       float wy = (f.y - lo.y) / (hi.y - lo.y);
+      float blind = dressing > 0.4 && dressing < 0.65 ? fract(roomSeed * 17.0) * 0.8 : 0.0;
       float slats = step(1.0 - blind, wy) * (0.75 + 0.25 * step(0.5, fract(wy * 40.0)));
-      vec3 seen = mix(roomCol, vec3(0.85, 0.8, 0.7) * slats, step(1.0 - blind, wy));
+      vec3 seen = mix(roomCol, vec3(0.5, 0.47, 0.42) * slats, step(1.0 - blind, wy));
+      if (dressing < 0.4) {
+        float folds = 0.7 + 0.3 * sin(wx * 38.0 + roomSeed * 20.0) * sin(wx * 11.0);
+        float gap = step(abs(wx - 0.5), 0.06 * fract(roomSeed * 5.0));
+        seen = mix(vec3(0.55, 0.5, 0.42) * folds, roomCol, gap);
+      }
       float fres = pow(1.0 - abs(dot(V, N)), 5.0);
-      vec3 inside = lit ? seen * lamp * mix(0.5, 2.0, uNight) + lamp * lightPanel * 2.5 : seen * mix(0.18, 0.01, uNight);
+      vec3 inside = lit ? seen * lamp * mix(0.5, 1.0, uNight) + lamp * lightPanel * 1.4 * step(0.4, dressing) : seen * mix(0.18, 0.006, uNight);
+      // A television flickering blue in some dark rooms.
+      if (!lit && fract(roomSeed * 29.0) < 0.05 * uNight) {
+        float flick = 0.5 + 0.5 * sin(uTime * 9.0 + roomSeed * 50.0) * sin(uTime * 3.1 + roomSeed * 9.0);
+        inside += vec3(0.06, 0.1, 0.24) * flick * roomCol * 3.0;
+      }
       // Far away rooms blur into their average glow (no aliasing).
-      vec3 farGlow = lamp * litRatio * mix(0.25, 1.2, uNight);
+      vec3 farGlow = lamp * litRatio * mix(0.25, 0.7, uNight);
       facadeEmissive += mix(inside * (1.0 - fres * 0.85) * open, farGlow * windowMask, far);
       albedo = mix(albedo, vec3(0.015, 0.02, 0.025), windowMask);
     } else if (style != 4) {
@@ -247,7 +270,7 @@ float facadeRough;`,
           float edge = step(sy, 0.06) + step(0.94, sy);
           vec3 sign = mix(boxCol * (whiteBox ? 1.0 : 0.35), inkCol, glyph);
           albedo = mix(sign * 0.6, vec3(0.03), edge);
-          facadeEmissive += sign * (1.0 - edge) * mix(0.15, 1.6, uNight);
+          facadeEmissive += sign * (1.0 - edge) * mix(0.15, 1.2, uNight);
         } else if (y > glassTop) {
           albedo = vec3(0.06, 0.065, 0.07);
         } else if (kind < 0.6 || kind > 0.82) {
@@ -272,9 +295,9 @@ float facadeRough;`,
             // Shelves of goods: bright horizontal bands with dotted products.
             float shelves = step(0.7, fract((y - kick) / 0.45)) * (0.6 + 0.4 * step(0.5, fract(sx * 3.1 + kind * 7.0)));
             vec3 goods = mix(room, room * 1.6 + neonColor(kind * 9.0 + floor(sx * 3.1)) * 0.25, shelves * (lobby ? 0.0 : 1.0));
-            bool lit = facadeHash(vec2(bayId * 3.0 + 1.0, seed * 131.0)) < mix(0.35, 0.92, uNight);
+            bool lit = facadeHash(vec2(bayId * 3.0 + 1.0, seed * 131.0)) < mix(0.35, 0.75, uNight);
             float fres = pow(1.0 - abs(dot(V, N)), 4.0);
-            vec3 inside = lit ? goods * lamp * mix(0.8, 2.2, uNight) + lamp * lightPanel * 3.0 : goods * 0.04;
+            vec3 inside = lit ? goods * lamp * mix(0.8, 1.25, uNight) + lamp * lightPanel * 1.8 : goods * 0.03;
             facadeEmissive += inside * (1.0 - fres * 0.8) * (1.0 - frame);
             albedo = mix(vec3(0.01, 0.012, 0.015), vec3(0.05, 0.05, 0.055), frame);
             windowMask = 1.0 - frame;
@@ -338,6 +361,6 @@ metalnessFactor = mix(metalnessFactor, 0.85, windowMask);`,
 totalEmissiveRadiance += facadeEmissive;`,
       );
   };
-  material.customProgramCacheKey = () => 'facade-v4';
+  material.customProgramCacheKey = () => 'facade-v5';
   return material;
 }

@@ -6,7 +6,7 @@ import { cityUniforms } from '../render/materials/cityUniforms';
 import type { Environment } from './environment';
 import { nightFactor, skyAt, sunDirection } from './time';
 
-/** Gradient sky dome with sun, moon and stars, plus the lights that go with it. */
+/** Gradient sky dome with sun and moon, plus the lights that go with it. */
 export class SkyRig {
   readonly dome: THREE.Mesh;
   readonly sun = new THREE.DirectionalLight(0xffffff, 1);
@@ -58,10 +58,7 @@ void main() {
   col += uSunColor * (pow(s, 900.0) * 30.0 + pow(s, 12.0) * 0.35) * (1.0 - uNight);
   float m = max(dot(d, -uSunDir), 0.0);
   col += vec3(0.75, 0.8, 1.0) * (smoothstep(0.9993, 0.9996, m) * 2.0 + pow(m, 40.0) * 0.08) * uNight;
-  // Stars, dimmed near the polluted horizon.
-  vec2 sp = d.xz / (d.y + 1.0) * 220.0;
-  float star = step(0.9975, h21(floor(sp))) * smoothstep(0.1, 0.5, up);
-  col += vec3(star) * uNight * (0.5 + 0.5 * sin(uTime * 3.0 + h21(floor(sp)) * 60.0)) * (1.0 - uCloudiness);
+  // No stars: the smog over the city hides them.
   // Cloud layer (weather), lit from below by the city at night.
   vec2 cp = d.xz / max(d.y, 0.05) * 1.5 + uTime * 0.01;
   float c = smoothstep(0.35, 0.8, noise(cp) * 0.6 + noise(cp * 2.7) * 0.4) * uCloudiness * smoothstep(0.0, 0.2, up);

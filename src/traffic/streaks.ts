@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ADDITIVE_FOG_DEFINES } from '../render/fog';
 import { cityUniforms } from '../render/materials/cityUniforms';
 import type { Lane } from './lanes';
 
@@ -16,6 +17,7 @@ export class TrafficStreaks {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
+    defines: ADDITIVE_FOG_DEFINES,
       fog: true,
       vertexShader: `#include <common>
 #include <fog_pars_vertex>

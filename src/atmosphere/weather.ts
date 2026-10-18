@@ -22,10 +22,10 @@ export interface WeatherState {
 }
 
 export const WEATHER_TARGETS: Record<WeatherKind, Omit<WeatherState, 'wetness'>> = {
-  clear: { cloudiness: 0.12, fog: 0.0011, rain: 0, storm: 0 },
-  rain: { cloudiness: 0.92, fog: 0.0026, rain: 1, storm: 0 },
-  fog: { cloudiness: 0.6, fog: 0.0058, rain: 0, storm: 0 },
-  storm: { cloudiness: 1, fog: 0.0032, rain: 1, storm: 1 },
+  clear: { cloudiness: 0.35, fog: 0.0019, rain: 0, storm: 0 },
+  rain: { cloudiness: 0.92, fog: 0.0034, rain: 1, storm: 0 },
+  fog: { cloudiness: 0.7, fog: 0.0078, rain: 0, storm: 0 },
+  storm: { cloudiness: 1, fog: 0.0042, rain: 1, storm: 1 },
 };
 
 /** Markov chain: where the weather goes next. */

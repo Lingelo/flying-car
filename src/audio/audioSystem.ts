@@ -32,8 +32,15 @@ export class AudioSystem {
       if (extra.length) this.radio.appendTracks(extra);
     });
 
-    const resume = () => {
+    // Browsers only allow sound after a gesture: the first click or key also switches the radio
+    // on (unless that key is the radio key itself, which then does it).
+    let radioStarted = false;
+    const resume = (e: Event) => {
       if (ctx.state !== 'running') void ctx.resume();
+      if (!radioStarted) {
+        radioStarted = true;
+        if (this.radio.status === 'off' && (e as KeyboardEvent).code !== 'KeyM') this.radio.toggle();
+      }
     };
     window.addEventListener('pointerdown', resume);
     window.addEventListener('keydown', resume);

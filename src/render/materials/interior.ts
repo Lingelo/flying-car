@@ -38,8 +38,8 @@ vec3 interiorRoom(vec2 entry, vec3 dir, vec3 size, float roomSeed, out float lig
   float h1 = fract(roomSeed * 13.71);
   float h2 = fract(roomSeed * 7.13);
   float h3 = fract(roomSeed * 3.97);
-  // Wall paint: off-white, beige, pale blue or a bold accent.
-  vec3 wall = h1 < 0.35 ? vec3(0.78, 0.76, 0.72) : h1 < 0.6 ? vec3(0.72, 0.62, 0.5) : h1 < 0.85 ? vec3(0.55, 0.65, 0.75) : vec3(0.55, 0.25, 0.35);
+  // Wall paint, muted: worn cream, wood panelling, dull blue-grey or a deep accent.
+  vec3 wall = h1 < 0.35 ? vec3(0.46, 0.42, 0.36) : h1 < 0.6 ? vec3(0.36, 0.25, 0.16) : h1 < 0.85 ? vec3(0.26, 0.3, 0.36) : vec3(0.36, 0.12, 0.18);
   vec3 col;
   lightPanel = 0.0;
   if (t == tz) {
@@ -52,7 +52,7 @@ vec3 interiorRoom(vec2 entry, vec3 dir, vec3 size, float roomSeed, out float lig
     col = mix(col, h2 < 0.5 ? vec3(0.1, 0.5, 0.9) : vec3(0.9, 0.3, 0.5), poster * step(0.4, h3));
   } else if (t == ty) {
     if (dir.y > 0.0) {
-      col = vec3(0.82);
+      col = vec3(0.5);
       // Ceiling light panel.
       lightPanel = step(abs(p.z - size.z * 0.5), 0.6) * step(abs(p.x - size.x * 0.5), size.x * 0.3);
     } else {
@@ -63,6 +63,8 @@ vec3 interiorRoom(vec2 entry, vec3 dir, vec3 size, float roomSeed, out float lig
     // A tall cabinet or a door on the side walls.
     col = mix(col, vec3(0.15, 0.12, 0.1), step(abs(p.z - size.z * 0.6), 0.4) * step(p.y, 2.1) * step(0.5, h3));
   }
-  // Light falls off towards the back of the room.
-  return col * mix(1.0, 0.45, clamp(p.z / size.z, 0.0, 1.0));
+  // A lamp in the room: a warm pool of light on one side, the corners left in the dark.
+  vec3 lampAt = vec3(size.x * (0.2 + 0.6 * h3), size.y * 0.55, size.z * 0.6);
+  float pool = 1.0 / (1.0 + dot(p - lampAt, p - lampAt) * 0.35);
+  return col * (0.25 + 0.95 * pool) * mix(1.0, 0.5, clamp(p.z / size.z, 0.0, 1.0));
 }`;

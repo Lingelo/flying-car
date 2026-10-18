@@ -61,7 +61,7 @@ export class Benchmark {
     environment.autoTime = false;
     environment.hour = 22;
     environment.weather.force('rain');
-    Object.assign(environment.weather.state, { rain: 1, wetness: 1, cloudiness: 0.92, fog: 0.0026 });
+    Object.assign(environment.weather.state, { rain: 1, wetness: 1, cloudiness: 0.92, fog: 0.0034 });
   }
 
   /** Call once per rendered frame with its duration. */

@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+/** Defines for additive materials so the fog fades them out instead of tinting them. */
+export const ADDITIVE_FOG_DEFINES = { ADDITIVE_FOG: '' };
+
 /** Thickness of the fog layer (m): streets are hazy, the view clears up above the towers. */
 export const FOG_HEIGHT = 170;
 
@@ -39,6 +42,12 @@ export function installHeightFog(): void {
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
   #endif
-  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
+  #ifdef ADDITIVE_FOG
+    // Additive light (neon, halos, holograms) fades to nothing in the fog: mixing it towards the
+    // fog colour would add pale rectangles of fog over everything behind it.
+    gl_FragColor *= 1.0 - fogFactor;
+  #else
+    gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
+  #endif
 #endif`;
 }

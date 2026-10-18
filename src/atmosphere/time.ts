@@ -47,7 +47,7 @@ export function nightFactor(hour: number): number {
 
 /** Share of lit windows; the facade shader uses the same formula. */
 export function litRatio(night: number): number {
-  return 0.03 + 0.27 * night;
+  return 0.03 + 0.12 * night;
 }
 
 export interface SkyState {
@@ -62,7 +62,9 @@ export interface SkyState {
 
 /** Sky keyframes by sun elevation (sine): night, deep dusk, sunset, hazy day, noon. */
 const KEYS: [number, SkyState][] = [
-  [-0.25, { zenith: [0.008, 0.01, 0.03], horizon: [0.07, 0.035, 0.12], sunColor: [0.5, 0.6, 1], sunIntensity: 0, ambientSky: [0.32, 0.26, 0.62], ambientGround: [0.05, 0.03, 0.08], ambientIntensity: 0.9 }],
+  // Night is a dark smoggy sky lit from below by the city (Blade Runner): little ambient light,
+  // the neons and windows do the lighting.
+  [-0.25, { zenith: [0.004, 0.005, 0.012], horizon: [0.05, 0.03, 0.06], sunColor: [0.5, 0.6, 1], sunIntensity: 0, ambientSky: [0.2, 0.18, 0.36], ambientGround: [0.04, 0.025, 0.05], ambientIntensity: 0.38 }],
   [-0.05, { zenith: [0.03, 0.03, 0.09], horizon: [0.36, 0.12, 0.22], sunColor: [1, 0.4, 0.3], sunIntensity: 0.1, ambientSky: [0.4, 0.28, 0.5], ambientGround: [0.08, 0.04, 0.06], ambientIntensity: 0.9 }],
   [0.05, { zenith: [0.12, 0.14, 0.3], horizon: [0.95, 0.42, 0.22], sunColor: [1, 0.55, 0.3], sunIntensity: 1.2, ambientSky: [0.55, 0.45, 0.55], ambientGround: [0.15, 0.08, 0.06], ambientIntensity: 1 }],
   [0.3, { zenith: [0.25, 0.38, 0.62], horizon: [0.62, 0.6, 0.62], sunColor: [1, 0.9, 0.8], sunIntensity: 2.6, ambientSky: [0.6, 0.66, 0.8], ambientGround: [0.2, 0.17, 0.15], ambientIntensity: 1.2 }],

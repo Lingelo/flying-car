@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ADDITIVE_FOG_DEFINES } from '../fog';
 import { NEON_PALETTE } from './facade';
 import { cityUniforms } from './cityUniforms';
 import { ATLAS_GLSL } from '../signAtlas';
@@ -147,6 +148,7 @@ export function createNeonMaterial(): THREE.ShaderMaterial {
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    defines: ADDITIVE_FOG_DEFINES,
     vertexShader: vertex,
     fragmentShader: `#include <common>
 #include <fog_pars_fragment>
@@ -196,6 +198,7 @@ export function createHaloMaterial(): THREE.ShaderMaterial {
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    defines: ADDITIVE_FOG_DEFINES,
     vertexShader: `#include <common>
 #include <fog_pars_vertex>
 uniform float uScale;
@@ -233,6 +236,7 @@ export function createHologramMaterial(): THREE.ShaderMaterial {
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    defines: ADDITIVE_FOG_DEFINES,
     vertexShader: vertex,
     fragmentShader: `#include <common>
 #include <fog_pars_fragment>

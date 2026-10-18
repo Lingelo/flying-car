@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ADDITIVE_FOG_DEFINES } from '../render/fog';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   buildBrakeDisc, buildCaliper, buildDiffuser, buildRim, buildSplitter, buildTyre, createCarMaterials, type CarMaterials,
@@ -294,6 +295,7 @@ export function buildProceduralCar(): ProceduralCar {
 
   const rimGlow = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x19e0ff, emissiveIntensity: 1.6 });
   const thrusterMaterial = new THREE.MeshBasicMaterial({ color: 0x46f0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  thrusterMaterial.defines = { ...ADDITIVE_FOG_DEFINES };
   const wheels: Wheel[] = [];
   const thrusters: THREE.Mesh[] = [];
   const width = 0.27;
