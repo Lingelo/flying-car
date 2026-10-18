@@ -3,6 +3,7 @@ import type { GeometryData } from '../render/geometryData';
 import { createFacadeMaterial } from '../render/materials/facade';
 import { createHaloMaterial, createHologramMaterial, createNeonMaterial, createSignMaterial, createSteamMaterial } from '../render/materials/hologram';
 import { createGroundMaterial, createRoadMaterial, createWaterMaterial } from '../render/materials/road';
+import { createSurfaceMaterial } from '../render/materials/surface';
 import type { ChunkPayload } from './payload';
 import { Pool } from './pool';
 import type { ChunkSink } from './streamer';
@@ -65,9 +66,9 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     halo: createHaloMaterial(),
     hologram: createHologramMaterial(),
     steam: createSteamMaterial(),
-    rail: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0.1 }),
+    rail: createSurfaceMaterial({ roughness: 0.85, metalness: 0.05 }),
     railLights: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
-    props: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.2, side: THREE.DoubleSide }),
+    props: createSurfaceMaterial({ roughness: 0.7, metalness: 0.2, side: THREE.DoubleSide }),
   };
   private readonly pool = new Pool<ChunkHandle>(() => {
     const group = new THREE.Group();

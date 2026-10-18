@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Downloads the CC0 textures listed in src/render/textureManifest.json from Poly Haven,
-recompresses them for the web (diffuse/normal 1024 px, ARM 512 px) into public/assets/textures/,
+recompresses them for the web (diffuse/normal 1024 px, or 2048 px for entries with "res": "2k";
+ARM 512 px) into public/assets/textures/,
 and refreshes their entries in public/assets/CREDITS.md.
 
 Usage: python3 scripts/fetch_assets.py   (needs network access and Pillow)
@@ -32,8 +33,11 @@ def main() -> None:
     for t in MANIFEST["textures"]:
         files = json.loads(get(f"{API}/files/{t['polyhaven']}"))
         info = json.loads(get(f"{API}/info/{t['polyhaven']}"))
+        res = t.get("res", "1k")
         for ph, (suffix, size, quality) in MAPS.items():
-            url = files[ph]["1k"]["jpg"]["url"]
+            if res == "2k" and suffix != "arm":
+                size *= 2
+            url = files[ph][res]["jpg"]["url"]
             image = Image.open(io.BytesIO(get(url))).convert("RGB")
             if image.width != size:
                 image = image.resize((size, size), Image.LANCZOS)

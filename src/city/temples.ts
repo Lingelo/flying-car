@@ -2,6 +2,7 @@ import { Rng, hash3 } from '../core/random';
 import { QuadBuilder, type GeometryData } from '../render/geometryData';
 import type { Box, Chunk } from './generator';
 import { BLOCK_SPAN, templeBlock } from './reserved';
+import { SURFACE, type Surface } from '../render/materials/surface';
 
 type C3 = [number, number, number];
 type V3 = [number, number, number];
@@ -19,11 +20,14 @@ const ROOF: C3 = [0.1, 0.12, 0.12];
 const VERMILION: C3 = [0.85, 0.2, 0.06];
 
 const uv: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
-const info: [number, number, number, number] = [0, 0, 0, 0];
+/** Photo texture of each temple colour: lacquered or bare wood, plaster and stone, tiled roofs. */
+const surfaceOf = (colour: C3): Surface =>
+  colour === WOOD || colour === VERMILION ? SURFACE.WOOD : colour === ROOF ? SURFACE.ROOF_TILES : colour === WALL || colour === STONE ? SURFACE.CONCRETE : SURFACE.METAL;
 
 function box(q: QuadBuilder, b: Box, colour: C3): void {
   const x0 = b.x - b.w / 2, x1 = b.x + b.w / 2, z0 = b.z - b.d / 2, z1 = b.z + b.d / 2;
   const { y0, y1 } = b;
+  const info: [number, number, number, number] = [surfaceOf(colour), 0, 0, 0];
   q.quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1], uv, colour, info);
   q.quad([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0], uv, colour, info);
   q.quad([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1], uv, colour, info);
@@ -60,7 +64,7 @@ function curvedRoof(q: QuadBuilder, cx: number, cz: number, eaveY: number, ridge
       [[cx + a.hw, a.y, cz - a.hd], [cx + a.hw, a.y, cz + a.hd], [cx + b.hw, b.y, cz + b.hd], [cx + b.hw, b.y, cz - b.hd]],
       [[cx - a.hw, a.y, cz + a.hd], [cx - a.hw, a.y, cz - a.hd], [cx - b.hw, b.y, cz - b.hd], [cx - b.hw, b.y, cz + b.hd]],
     ];
-    for (const f of faces) q.quad(f, quadNormal(f[0], f[1], f[2]), uv, ROOF, info);
+    for (const f of faces) q.quad(f, quadNormal(f[0], f[1], f[2]), uv, ROOF, [SURFACE.ROOF_TILES, 0, 0, 0]);
   }
 }
 

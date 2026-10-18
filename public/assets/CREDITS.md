@@ -13,6 +13,11 @@ Every third-party asset shipped in `public/` is listed here with its source and 
 | `textures/shutter_*.jpg` | https://polyhaven.com/a/painted_metal_shutter | Dario Barresi, Rico Cilliers, Charlotte Baglioni | CC0 |
 | `textures/asphalt_*.jpg` | https://polyhaven.com/a/worn_asphalt | Amal Kumar | CC0 |
 | `textures/pavement_*.jpg` | https://polyhaven.com/a/herringbone_concrete_tile_02 | Charlotte Baglioni | CC0 |
+| `textures/rustyPaint_*.jpg` | https://polyhaven.com/a/rusty_painted_metal | Amal Kumar | CC0 |
+| `textures/concrete_*.jpg` | https://polyhaven.com/a/concrete_wall_006 | Dario Barresi, Charlotte Baglioni | CC0 |
+| `textures/wood_*.jpg` | https://polyhaven.com/a/dark_wooden_planks | Amal Kumar | CC0 |
+| `textures/roofTiles_*.jpg` | https://polyhaven.com/a/grey_roof_tiles | Rob Tuytel | CC0 |
+| `textures/rooftop_*.jpg` | https://polyhaven.com/a/concrete_floor_painted | Rob Tuytel | CC0 |
 | Noto Sans JP (npm `@fontsource/noto-sans-jp`, bundled subsets) | https://fonts.google.com/noto/specimen/Noto+Sans+JP | Google / Adobe | SIL Open Font License 1.1 |
 | N8AO ambient occlusion (npm `n8ao`) | https://github.com/N8python/n8ao | N8python | MIT |
 

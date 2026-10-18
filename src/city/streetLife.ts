@@ -1,6 +1,7 @@
 import { Rng, hash3 } from '../core/random';
 import { QuadBuilder, type GeometryData } from '../render/geometryData';
 import { BLOCK_SIZE, CHUNK_SIZE, STREET_WIDTH, AVENUE_WIDTH, type Chunk } from './generator';
+import { SURFACE, type Surface } from '../render/materials/surface';
 
 type P3 = { x: number; y: number; z: number };
 
@@ -124,9 +125,9 @@ export function placeStreetLife(chunk: Chunk, seed: number): StreetLife {
   return { canopies, lanterns, poles, cables, vending };
 }
 
-const quadBox = (q: QuadBuilder, c: P3, w: number, h: number, d: number, colour: [number, number, number], top = true) => {
+const quadBox = (q: QuadBuilder, c: P3, w: number, h: number, d: number, colour: [number, number, number], top = true, surface: Surface = SURFACE.METAL) => {
   const x0 = c.x - w / 2, x1 = c.x + w / 2, y0 = c.y, y1 = c.y + h, z0 = c.z - d / 2, z1 = c.z + d / 2;
-  const info: [number, number, number, number] = [0, 0, 0, 0];
+  const info: [number, number, number, number] = [surface, 0, 0, 0];
   const uv: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
   q.quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1], uv, colour, info);
   q.quad([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0], uv, colour, info);
@@ -151,13 +152,13 @@ const cableQuads = (q: QuadBuilder, c: Cable, ox: number, oz: number) => {
   for (let i = 0; i < steps; i++) {
     const a = pts[i];
     const b = pts[i + 1];
-    q.quad([[a.x, a.y - r, a.z], [b.x, b.y - r, b.z], [b.x, b.y + r, b.z], [a.x, a.y + r, a.z]], [0, 0, 1], uv, black, [0, 0, 0, 0]);
+    q.quad([[a.x, a.y - r, a.z], [b.x, b.y - r, b.z], [b.x, b.y + r, b.z], [a.x, a.y + r, a.z]], [0, 0, 1], uv, black, [SURFACE.PLAIN, 0, 0, 0]);
     const dx = b.x - a.x;
     const dz = b.z - a.z;
     const l = Math.hypot(dx, dz) || 1;
     const sx = (-dz / l) * r;
     const sz = (dx / l) * r;
-    q.quad([[a.x - sx, a.y, a.z - sz], [b.x - sx, b.y, b.z - sz], [b.x + sx, b.y, b.z + sz], [a.x + sx, a.y, a.z + sz]], [0, 1, 0], uv, black, [0, 0, 0, 0]);
+    q.quad([[a.x - sx, a.y, a.z - sz], [b.x - sx, b.y, b.z - sz], [b.x + sx, b.y, b.z + sz], [a.x + sx, a.y, a.z + sz]], [0, 1, 0], uv, black, [SURFACE.PLAIN, 0, 0, 0]);
   }
 };
 
@@ -228,7 +229,7 @@ export function buildStreetLifeGeometry(life: StreetLife, ox: number, oz: number
   const props = new QuadBuilder();
   const glow = new QuadBuilder();
   for (const p of life.poles) {
-    quadBox(props, { x: p.x - ox, y: 0, z: p.z - oz }, 0.3, p.height, 0.3, [0.28, 0.27, 0.26]);
+    quadBox(props, { x: p.x - ox, y: 0, z: p.z - oz }, 0.3, p.height, 0.3, [0.28, 0.27, 0.26], true, SURFACE.CONCRETE);
     quadBox(props, { x: p.x - ox, y: p.height - 1.6, z: p.z - oz }, 1.6, 0.12, 0.12, [0.2, 0.2, 0.2]);
     // Small transformer drum.
     quadBox(props, { x: p.x - ox + 0.35, y: p.height - 3.2, z: p.z - oz }, 0.45, 0.8, 0.45, [0.35, 0.36, 0.34]);

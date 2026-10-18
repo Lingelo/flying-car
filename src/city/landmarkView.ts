@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { cityUniforms } from '../render/materials/cityUniforms';
 import { landmarksNear, TOWER_DECKS, TOWER_HEIGHT, type Landmark } from './reserved';
+import { surfaceUniforms } from '../render/materials/surface';
 
 /** Visual profile of the tower: (height, width) pairs, Tokyo Tower style. */
 const PROFILE: [number, number][] = [[0, 44], [60, 24], [140, 14], [230, 7], [290, 3], [TOWER_HEIGHT, 0.6]];
@@ -44,7 +45,7 @@ function towerGeometry(): THREE.BufferGeometry {
 function latticeMaterial(): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.4, side: THREE.DoubleSide });
   m.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, cityUniforms);
+    Object.assign(shader.uniforms, cityUniforms, surfaceUniforms);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 attribute vec2 aUv;
@@ -57,6 +58,9 @@ vWidth = aWidth;`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 uniform float uNight;
+uniform float uSurfaceReady;
+uniform sampler2D uSurf0;
+uniform sampler2D uSurfN0;
 varying vec2 vTower;
 varying float vWidth;
 float strut(float d, float w) { return 1.0 - smoothstep(w, w + fwidth(d) * 1.5, d); }`)
@@ -64,9 +68,10 @@ float strut(float d, float w) { return 1.0 - smoothstep(w, w + fwidth(d) * 1.5, 
 float x = vTower.x * vWidth;
 float y = vTower.y;
 float edge = strut(min(x, vWidth - x), 0.7);
-float ring = strut(abs(fract(y / 10.0) - 0.5) * 10.0 - 4.5, 0.35);
-float d1 = strut(abs(fract((x + y * 0.9) / 10.0) - 0.5) * 10.0 - 4.6, 0.3);
-float d2 = strut(abs(fract((x - y * 0.9) / 10.0) - 0.5) * 10.0 - 4.6, 0.3);
+// Distance (m) to the nearest horizontal ring and to the nearest strut of each diagonal set.
+float ring = strut((0.5 - abs(fract(y / 10.0) - 0.5)) * 10.0, 0.35);
+float d1 = strut((0.5 - abs(fract((x + y * 0.9) / 10.0) - 0.5)) * 10.0 * 0.74, 0.3);
+float d2 = strut((0.5 - abs(fract((x - y * 0.9) / 10.0) - 0.5)) * 10.0 * 0.74, 0.3);
 float lattice = max(max(edge, ring), max(d1, d2));
 // Arches between the four legs.
 float arch = 14.0 * sqrt(max(0.0, 1.0 - pow(y / 42.0, 2.0)));
@@ -75,17 +80,48 @@ if (vWidth < 2.0) lattice = 1.0;
 if (lattice < 0.5) discard;
 // International orange and white bands.
 float band = mod(floor(y / ${(TOWER_HEIGHT / 9).toFixed(1)}), 2.0);
-diffuseColor.rgb = band < 0.5 ? vec3(0.95, 0.28, 0.04) : vec3(0.9, 0.88, 0.85);`)
+diffuseColor.rgb = band < 0.5 ? vec3(0.95, 0.28, 0.04) : vec3(0.9, 0.88, 0.85);
+// Weathered paint: each 2.5 m strut segment a shade apart, rust streaks running down the legs.
+float seg = fract(sin(dot(floor(vec2(x / 2.5, y / 2.5)), vec2(12.9898, 78.233))) * 43758.5453);
+float streak = fract(sin(floor(x / 0.8) * 91.7) * 4375.85);
+diffuseColor.rgb *= (0.78 + 0.22 * seg) * mix(1.0, 0.72, step(0.8, streak) * (1.0 - fract(y / 10.0)));
+diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, ring * 0.5);
+// Painted steel photo texture (rust, chips) over the bands.
+if (uSurfaceReady > 0.5) {
+  vec3 steel = texture2D(uSurf0, vec2(x, y) / 2.0).rgb;
+  diffuseColor.rgb *= clamp(steel / max(0.05, dot(steel, vec3(0.333))), 0.0, 2.0) * mix(0.7, 1.1, dot(steel, vec3(0.333)));
+}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-// Floodlit at night, warm orange like the real "Landmark Light".
-totalEmissiveRadiance += vec3(1.6, 0.55, 0.12) * uNight * (0.6 + 0.4 * edge);`)
+// Floodlit at night like the real "Landmark Light": projectors on each level throw a warm pool
+// upwards that fades along the structure, the corner legs catching most of it.
+float pool = pow(1.0 - fract(y / 40.0), 3.0);
+totalEmissiveRadiance += diffuseColor.rgb * vec3(1.2, 0.6, 0.25) * uNight * (0.05 + 0.75 * pool) * (0.45 + 0.55 * edge);`)
       // Landmarks stay readable through the haze (AE5): only part of the fog applies.
       .replace('#include <fog_fragment>', `vec3 beforeFog = gl_FragColor.rgb;
 #include <fog_fragment>
 gl_FragColor.rgb = mix(beforeFog, gl_FragColor.rgb, 0.55);`);
   };
-  m.customProgramCacheKey = () => 'tower-v1';
+  m.customProgramCacheKey = () => 'tower-v4';
   return m;
+}
+
+/**
+ * Observatory glazing for the deck boxes (box UVs: u around each face, v up): a lit band of tall
+ * panes with dark mullions, solid cladding above and below.
+ */
+function deckWindows(): THREE.DataTexture {
+  const size = 64;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const band = y > size * 0.28 && y < size * 0.72;
+      const mullion = x % 8 < 1;
+      const v = band && !mullion ? 255 : 0;
+      data.set([v, v, v, 255], (y * size + x) * 4);
+    }
+  const t = new THREE.DataTexture(data, size, size);
+  t.needsUpdate = true;
+  return t;
 }
 
 /** Landmark towers within 4.5 km, independent of chunk streaming so the skyline shows from afar. */
@@ -93,7 +129,7 @@ export class LandmarkView {
   readonly group = new THREE.Group();
   private readonly geometry = towerGeometry();
   private readonly material = latticeMaterial();
-  private readonly deckMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a30, emissive: 0xffd9a0, emissiveIntensity: 0, roughness: 0.4 });
+  private readonly deckMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a30, emissive: 0xffd9a0, emissiveIntensity: 0, emissiveMap: deckWindows(), roughness: 0.4, metalness: 0.5 });
   private readonly beacon = new THREE.MeshBasicMaterial({ color: 0xff2020, toneMapped: false });
   private readonly towers = new Map<string, THREE.Group>();
   private lastUpdate = -Infinity;

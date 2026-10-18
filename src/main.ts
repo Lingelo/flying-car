@@ -22,6 +22,7 @@ import { landmarksNear } from './city/reserved';
 import { signUniforms } from './render/materials/hologram';
 import { facadeUniforms, loadFacadeTextures } from './render/materials/facade';
 import { loadGroundTextures } from './render/materials/road';
+import { loadSurfaceTextures } from './render/materials/surface';
 import { Lightning } from './atmosphere/lightning';
 import { LightningView } from './atmosphere/lightningView';
 import { Skyline } from './atmosphere/skyline';
@@ -66,6 +67,7 @@ const game = await createGame(scene, pipeline.renderer.domElement, seed);
 // Photographic walls replace the procedural ones once the CC0 maps are loaded.
 void loadFacadeTextures();
 void loadGroundTextures();
+void loadSurfaceTextures();
 // Japanese signs appear once the font subsets they need are loaded.
 void createSignAtlas()
   .then((atlas) => {
@@ -227,7 +229,7 @@ createLoop(
     sky.sun.intensity *= 1 - 0.75 * w.cloudiness;
     cityUniforms.uWetness.value = w.wetness;
     cityUniforms.uRain.value = w.rain;
-    cityUniforms.uHaze.value = Math.min(1, (w.fog - 0.0012) / 0.004 + w.rain * 0.5);
+    cityUniforms.uHaze.value = Math.min(1, (w.fog - 0.0012) / 0.003 + w.rain * 0.5);
     rain.update(camera, w.rain, QUALITY[quality].rain);
     // Storm: lightning lights the sky, the fog and the city for a moment, thunder follows.
     for (const strike of lightning.step(frameDt, w.storm)) audio.thunder(strike.delay, strike.loudness);

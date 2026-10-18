@@ -1,6 +1,7 @@
 import { hash3 } from '../core/random';
 import { QuadBuilder, type GeometryData } from '../render/geometryData';
 import { CHUNK_SIZE, type Box } from './generator';
+import { SURFACE, type Surface } from '../render/materials/surface';
 
 /** Viaduct profile (m): deck carried on median pillars, above the street traffic. */
 export const VIADUCT = { deckBottom: 12, deckTop: 13.6, width: 9, pillarSpacing: 32, pillar: 1.6, track: 2.2 };
@@ -65,13 +66,13 @@ export function trainCars(seed: number, cz: number, t: number, xMin: number, xMa
   return cars;
 }
 
-const box = (q: QuadBuilder, b: Box, ox: number, oz: number, color: [number, number, number]) => {
+const box = (q: QuadBuilder, b: Box, ox: number, oz: number, color: [number, number, number], surface: Surface = SURFACE.CONCRETE) => {
   const x0 = b.x - b.w / 2 - ox;
   const x1 = b.x + b.w / 2 - ox;
   const z0 = b.z - b.d / 2 - oz;
   const z1 = b.z + b.d / 2 - oz;
   const { y0, y1 } = b;
-  const info: [number, number, number, number] = [0, 0, 0, 0];
+  const info: [number, number, number, number] = [surface, 0, 0, 0];
   const uv: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
   q.quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1], uv, color, info);
   q.quad([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0], uv, color, info);
@@ -92,7 +93,7 @@ export function buildRailGeometry(segment: RailSegment, ox: number, oz: number):
     for (const side of [1, -1]) {
       box(structure, { x: d.x, z: d.z + side * (d.d / 2 - 0.15), w: d.w, d: 0.3, y0: d.y1, y1: d.y1 + 1.1 }, ox, oz, concrete);
       for (const r of [-0.75, 0.75])
-        box(structure, { x: d.x, z: d.z + side * VIADUCT.track + r, w: d.w, d: 0.12, y0: d.y1, y1: d.y1 + 0.18 }, ox, oz, [0.45, 0.45, 0.48]);
+        box(structure, { x: d.x, z: d.z + side * VIADUCT.track + r, w: d.w, d: 0.12, y0: d.y1, y1: d.y1 + 0.18 }, ox, oz, [0.45, 0.45, 0.48], SURFACE.METAL);
       box(lights, { x: d.x, z: d.z + side * (d.d / 2 - 0.4), w: d.w, d: 0.15, y0: d.y0 - 0.08, y1: d.y0 }, ox, oz, [0.3, 2.2, 2.6]);
     }
     for (const p of segment.pillars) box(structure, p, ox, oz, concrete);

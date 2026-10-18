@@ -29,12 +29,17 @@ export const facadeUniforms: Record<string, { value: unknown }> = {
   /** Japanese sign atlas for the shop sign bands, once its font is loaded. */
   uShopAtlas: { value: null },
   uShopAtlasReady: { value: 0 },
+  /** Flat concrete roofs. */
+  uRoofTex: { value: null },
+  uRoofN: { value: null },
   ...Object.fromEntries(FACADE_TEXTURES.flatMap((_, i) => [[`uWall${i}`, { value: null }], [`uWallN${i}`, { value: null }]])),
 };
 
 export async function loadFacadeTextures(): Promise<void> {
-  const sets = await Promise.all(FACADE_TEXTURES.map((id) => loadTextureSet(id)));
-  if (sets.some((s) => !s)) return; // keep the procedural look
+  const [sets, rooftop] = await Promise.all([Promise.all(FACADE_TEXTURES.map((id) => loadTextureSet(id))), loadTextureSet('rooftop')]);
+  if (sets.some((s) => !s) || !rooftop) return; // keep the procedural look
+  facadeUniforms.uRoofTex.value = rooftop.diff;
+  facadeUniforms.uRoofN.value = rooftop.nor;
   sets.forEach((s, i) => {
     facadeUniforms[`uWall${i}`].value = s!.diff;
     facadeUniforms[`uWallN${i}`].value = s!.nor;
@@ -83,6 +88,8 @@ uniform float uWetness;
 uniform float uTime;
 uniform float uFacadeReady;
 uniform sampler2D uShopAtlas;
+uniform sampler2D uRoofTex;
+uniform sampler2D uRoofN;
 uniform float uShopAtlasReady;
 ${ATLAS_GLSL}
 ${samplerDecls}
@@ -139,6 +146,12 @@ float facadeRough;`,
   if (uFacadeReady > 0.5) {
     albedo = wallAlbedo(m, wallUv, gx, gy).rgb * mix(vec3(1.0), tint, 0.35);
     facadeTangentNormal = wallNormal(m, wallUv, gx, gy).xyz * 2.0 - 1.0;
+    if (roof) {
+      // Painted concrete roof slab with ponding stains.
+      vec2 ruv = vec2(vFacadeWorld.x, -vFacadeWorld.z) / ${metres('rooftop').toFixed(1)};
+      albedo = texture2D(uRoofTex, ruv).rgb * (0.75 + 0.5 * facadeNoise(vFacadeWorld.xz * 0.15));
+      facadeTangentNormal = texture2D(uRoofN, ruv).xyz * 2.0 - 1.0;
+    }
     // Up close, a finer sample of the same material adds grain and relief where the base texture
     // would turn soft (detail layer, faded out with distance).
     float near = 1.0 - smoothstep(12.0, 45.0, distance(vFacadeWorld, cameraPosition));
@@ -361,6 +374,6 @@ metalnessFactor = mix(metalnessFactor, 0.85, windowMask);`,
 totalEmissiveRadiance += facadeEmissive;`,
       );
   };
-  material.customProgramCacheKey = () => 'facade-v5';
+  material.customProgramCacheKey = () => 'facade-v6';
   return material;
 }
