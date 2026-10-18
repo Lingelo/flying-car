@@ -1,0 +1,85 @@
+import { QuadBuilder, type GeometryData } from '../render/geometryData';
+import { AVENUE_WIDTH, BLOCK_SIZE, CHUNK_SIZE, STREET_WIDTH, type Chunk } from './generator';
+
+const ROAD_Y = 0.05;
+const LINES = Array.from({ length: CHUNK_SIZE / BLOCK_SIZE + 1 }, (_, i) => ({
+  at: i * BLOCK_SIZE,
+  width: i % (CHUNK_SIZE / BLOCK_SIZE) === 0 ? AVENUE_WIDTH : STREET_WIDTH,
+}));
+
+export interface GroundGeometry {
+  /** Street segments and intersections; `info` = (width, avenue, intersection, axis). */
+  roads: GeometryData;
+  ground: GeometryData;
+  water: GeometryData;
+}
+
+const up: [number, number, number] = [0, 1, 0];
+const white: [number, number, number] = [1, 1, 1];
+
+/** Ground plane, streets split at intersections (so markings stop there) and canals of a chunk. */
+export function buildGroundGeometry(chunk: Chunk): GroundGeometry {
+  const roads = new QuadBuilder();
+  const { x: ox, z: oz } = chunk.origin;
+
+  for (let i = 0; i < LINES.length - 1; i++) {
+    const line = LINES[i];
+    const avenue = line.width === AVENUE_WIDTH ? 1 : 0;
+    const hw = line.width / 2;
+    for (let k = 0; k < LINES.length - 1; k++) {
+      const from = LINES[k].at + LINES[k].width / 2;
+      const to = LINES[k + 1].at - LINES[k + 1].width / 2;
+      // Street along z at x = line.at; v runs along the street in world metres (dash continuity).
+      const vz0 = (oz + from) % 240;
+      const vz1 = vz0 + (to - from);
+      roads.quad(
+        [[line.at - hw, ROAD_Y, to], [line.at + hw, ROAD_Y, to], [line.at + hw, ROAD_Y, from], [line.at - hw, ROAD_Y, from]],
+        up,
+        [[-hw, vz1], [hw, vz1], [hw, vz0], [-hw, vz0]],
+        white,
+        [line.width, avenue, 0, 1],
+      );
+      // Street along x at z = line.at.
+      const vx0 = (ox + from) % 240;
+      const vx1 = vx0 + (to - from);
+      roads.quad(
+        [[from, ROAD_Y, line.at + hw], [to, ROAD_Y, line.at + hw], [to, ROAD_Y, line.at - hw], [from, ROAD_Y, line.at - hw]],
+        up,
+        [[-hw, vx0], [-hw, vx1], [hw, vx1], [hw, vx0]],
+        white,
+        [line.width, avenue, 0, 0],
+      );
+    }
+    for (let k = 0; k < LINES.length - 1; k++) {
+      const a = LINES[k];
+      const ha = a.width / 2;
+      roads.quad(
+        [[line.at - hw, ROAD_Y, a.at + ha], [line.at + hw, ROAD_Y, a.at + ha], [line.at + hw, ROAD_Y, a.at - ha], [line.at - hw, ROAD_Y, a.at - ha]],
+        up,
+        [[-hw, ha], [hw, ha], [hw, -ha], [-hw, -ha]],
+        white,
+        [line.width, avenue, 1, 0],
+      );
+    }
+  }
+
+  const ground = new QuadBuilder();
+  ground.quad(
+    [[0, 0, CHUNK_SIZE], [CHUNK_SIZE, 0, CHUNK_SIZE], [CHUNK_SIZE, 0, 0], [0, 0, 0]],
+    up,
+    [[ox, oz + CHUNK_SIZE], [ox + CHUNK_SIZE, oz + CHUNK_SIZE], [ox + CHUNK_SIZE, oz], [ox, oz]].map(([u, v]) => [u % 512, v % 512]) as [number, number][],
+    white,
+    [0, 0, 0, 0],
+  );
+
+  const water = new QuadBuilder();
+  for (const w of chunk.water) {
+    const x0 = w.x - w.w / 2 - ox;
+    const x1 = w.x + w.w / 2 - ox;
+    const z0 = w.z - w.d / 2 - oz;
+    const z1 = w.z + w.d / 2 - oz;
+    water.quad([[x0, ROAD_Y, z1], [x1, ROAD_Y, z1], [x1, ROAD_Y, z0], [x0, ROAD_Y, z0]], up, [[x0, z1], [x1, z1], [x1, z0], [x0, z0]], white, [0, 0, 0, 0]);
+  }
+
+  return { roads: roads.finish(), ground: ground.finish(), water: water.finish() };
+}

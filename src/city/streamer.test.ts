@@ -4,7 +4,7 @@ import { ChunkStreamer, type ChunkSink, type ChunkSource } from './streamer';
 import { Pool } from './pool';
 
 /** Source answering every request on the next drain, like a very fast worker. */
-class InstantSource implements ChunkSource {
+class InstantSource implements ChunkSource<Chunk> {
   private queue: Chunk[] = [];
   requests = 0;
   request(cx: number, cz: number) {
@@ -23,7 +23,7 @@ interface Handle {
   lod: boolean;
 }
 
-class PooledSink implements ChunkSink<Handle> {
+class PooledSink implements ChunkSink<Chunk, Handle> {
   pool = new Pool<Handle>(() => ({ key: '', lod: false }));
   mountedThisFrame = 0;
   mount(chunk: Chunk, lod: boolean) {
@@ -41,7 +41,7 @@ class PooledSink implements ChunkSink<Handle> {
   }
 }
 
-const settle = (streamer: ChunkStreamer<Handle>, x: number, z: number, frames = 60) => {
+const settle = (streamer: ChunkStreamer<Chunk, Handle>, x: number, z: number, frames = 60) => {
   for (let i = 0; i < frames; i++) streamer.update(x, z);
 };
 
@@ -107,7 +107,7 @@ describe('ChunkStreamer', () => {
 
   it('requests the chunks ahead of the movement first', () => {
     const requested: string[] = [];
-    const source: ChunkSource = {
+    const source: ChunkSource<Chunk> = {
       request: (cx, cz) => void requested.push(`${cx},${cz}`),
       drain: () => [],
     };

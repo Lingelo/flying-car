@@ -1,15 +1,21 @@
-import { CHUNK_SIZE, type Chunk } from './generator';
+import { CHUNK_SIZE } from './generator';
+
+/** Anything addressed by chunk coordinates (chunk data, or chunk data plus prebuilt meshes). */
+export interface ChunkKey {
+  cx: number;
+  cz: number;
+}
 
 /** Produces chunks asynchronously (a Web Worker in the app, a synchronous stub in tests). */
-export interface ChunkSource {
+export interface ChunkSource<P extends ChunkKey> {
   request(cx: number, cz: number): void;
   /** Chunks that arrived since the last call. */
-  drain(): Chunk[];
+  drain(): P[];
 }
 
 /** Turns chunk data into something visible and back (meshes in the app). */
-export interface ChunkSink<H> {
-  mount(chunk: Chunk, lod: boolean): H;
+export interface ChunkSink<P extends ChunkKey, H> {
+  mount(chunk: P, lod: boolean): H;
   unmount(handle: H): void;
   setLod(handle: H, lod: boolean): void;
 }
@@ -24,8 +30,8 @@ export interface StreamerOptions {
   maxInFlight?: number;
 }
 
-export interface ActiveChunk<H> {
-  chunk: Chunk;
+export interface ActiveChunk<P extends ChunkKey, H> {
+  chunk: P;
   handle: H;
   lod: boolean;
 }
@@ -33,15 +39,15 @@ export interface ActiveChunk<H> {
 const key = (cx: number, cz: number) => `${cx},${cz}`;
 
 /** Keeps a ring of chunks loaded around the player, closest and straight-ahead chunks first. */
-export class ChunkStreamer<H> {
-  readonly active = new Map<string, ActiveChunk<H>>();
+export class ChunkStreamer<P extends ChunkKey, H> {
+  readonly active = new Map<string, ActiveChunk<P, H>>();
   private readonly pending = new Set<string>();
-  private ready: Chunk[] = [];
+  private ready: P[] = [];
   private readonly offsets: { dx: number; dz: number; d: number }[] = [];
 
   constructor(
-    private readonly source: ChunkSource,
-    private readonly sink: ChunkSink<H>,
+    private readonly source: ChunkSource<P>,
+    private readonly sink: ChunkSink<P, H>,
     private readonly options: StreamerOptions,
   ) {
     const r = options.radius;
@@ -106,26 +112,3 @@ export class ChunkStreamer<H> {
   }
 }
 
-/** Generates chunks off the main thread. */
-export class WorkerChunkSource implements ChunkSource {
-  private readonly worker = new Worker(new URL('./chunk.worker.ts', import.meta.url), { type: 'module' });
-  private arrived: Chunk[] = [];
-
-  constructor(private readonly seed: number) {
-    this.worker.onmessage = (event: MessageEvent<Chunk>) => this.arrived.push(event.data);
-  }
-
-  request(cx: number, cz: number): void {
-    this.worker.postMessage({ seed: this.seed, cx, cz });
-  }
-
-  drain(): Chunk[] {
-    const out = this.arrived;
-    this.arrived = [];
-    return out;
-  }
-
-  dispose(): void {
-    this.worker.terminate();
-  }
-}
