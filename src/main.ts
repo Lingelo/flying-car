@@ -28,7 +28,7 @@ import { LightningView } from './atmosphere/lightningView';
 import { Skyline } from './atmosphere/skyline';
 import { CHUNK_SIZE } from './city/generator';
 import { toNightHour } from './atmosphere/time';
-import { weatherKind } from './atmosphere/weather';
+import { MENU_TRANSITION, weatherKind } from './atmosphere/weather';
 import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 import { loadSettings, saveSettings, type Settings } from './settings/store';
@@ -96,13 +96,23 @@ function applyQuality(name: QualityName): void {
 const storage = safeLocalStorage();
 let settings: Settings = loadSettings(storage);
 let qualityApplied = false;
+let weatherApplied = false;
 function applySettings(next: Settings): void {
+  const previous = settings;
   settings = next;
   if (next.quality !== quality || !qualityApplied) applyQuality(next.quality);
   qualityApplied = true;
   environment.autoTime = next.hour === null;
   if (next.hour !== null) environment.hour = toNightHour(next.hour);
-  environment.weather.force(next.weather);
+  // Only a changed choice restarts the weather, quickly so the player sees it happen.
+  if (!weatherApplied) {
+    // At start-up the chosen weather is already there, streets wet if it rains.
+    environment.weather.force(next.weather);
+    environment.weather.snap();
+  } else if (next.weather !== previous.weather) {
+    environment.weather.force(next.weather, MENU_TRANSITION);
+  }
+  weatherApplied = true;
   audio.setVolume(next.masterVolume, next.musicVolume);
 }
 // URL parameters override the saved settings for this visit (tests, sharing a view), without

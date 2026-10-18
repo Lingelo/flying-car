@@ -30,7 +30,7 @@ export function rainDropRates(rain: number): { drops: number; drips: number } {
 
 /**
  * Procedural ambience (no recordings to license): brown-noise city rumble, gusty pink-noise wind,
- * and rain built from a soft lowpassed wash plus individual drop and drip transients.
+ * and rain built from a lowpassed wash with a soft rustle, broadband impact ticks and rare drips.
  */
 export class Ambience {
   private readonly city: GainNode;
@@ -38,6 +38,7 @@ export class Ambience {
   private readonly windFilter: BiquadFilterNode;
   private readonly rain: GainNode;
   private readonly rainFilter: BiquadFilterNode;
+  private readonly sizzle: GainNode;
   private readonly drops: GainNode;
   private gust = 1;
   private nextGustAt = 0;
@@ -69,6 +70,8 @@ export class Ambience {
     const rain = loop('pink', 2000, 0.5);
     this.rain = rain.gain;
     this.rainFilter = rain.filter;
+    // The soft rustle on top of the body of the rain, kept well below it.
+    this.sizzle = loop('pink', 7000, 0.5).gain;
     // Drop transients share a gentle lowpass so they patter instead of ticking.
     const dropFilter = ctx.createBiquadFilter();
     dropFilter.type = 'lowpass';
@@ -119,11 +122,16 @@ export class Ambience {
     this.windFilter.frequency.setTargetAtTime(windCutoff(input.speed, input.altitude, this.gust), now, 1.2);
     this.rain.gain.setTargetAtTime(l.rain * 0.45, now, 0.5);
     this.rainFilter.frequency.setTargetAtTime(1500 + 1500 * Math.min(1, input.rain), now, 0.5);
+    this.sizzle.gain.setTargetAtTime(l.rain * 0.08, now, 0.5);
 
     if (l.rain > 0.005 && dt > 0) this.scheduleDrops(l.rain / 0.45, dt, now);
   }
 
-  /** Scatters drop and drip transients over the next frame, at a density following the rain. */
+  /**
+   * Scatters impacts over the next frame, at a density following the rain: drops are tiny noise
+   * ticks (rain hitting hard surfaces is broadband, not tonal); a rare drip into a puddle gives a
+   * soft low "plop".
+   */
   private scheduleDrops(level: number, dt: number, now: number): void {
     const rates = rainDropRates(level);
     const count = (rate: number) => {
@@ -132,42 +140,45 @@ export class Ambience {
     };
     for (let i = count(rates.drops); i > 0; i--) {
       const t = now + 0.03 + Math.random() * dt;
-      this.plip(t, 1400 + Math.random() * 2600, 0.015 + Math.random() * 0.03, (0.012 + Math.random() * 0.03) * (0.5 + level));
+      this.tick(t, 1800 + Math.random() * 4000, (0.01 + Math.random() * 0.025) * (0.5 + level));
     }
-    for (let i = count(rates.drips); i > 0; i--) {
+    for (let i = count(rates.drips * 0.4); i > 0; i--) {
       const t = now + 0.03 + Math.random() * dt;
-      this.plip(t, 450 + Math.random() * 700, 0.07 + Math.random() * 0.08, 0.04 + Math.random() * 0.05);
+      this.plop(t, 260 + Math.random() * 280, 0.012 + Math.random() * 0.015);
     }
   }
 
-  /** One drop: a tiny rising sine chirp (the bubble) on a soft noise click, panned at random. */
-  private plip(t: number, pitch: number, length: number, level: number): void {
+  /** One impact: a few milliseconds of band-passed noise, panned at random. */
+  private tick(t: number, centre: number, level: number): void {
     const ctx = this.ctx;
     const pan = ctx.createStereoPanner();
-    pan.pan.value = Math.random() * 1.8 - 0.9;
+    pan.pan.value = Math.random() * 1.6 - 0.8;
     pan.connect(this.drops);
-
-    const osc = ctx.createOscillator();
-    osc.frequency.setValueAtTime(pitch, t);
-    osc.frequency.exponentialRampToValueAtTime(pitch * (1.3 + Math.random() * 0.5), t + length);
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(level, t + 0.002);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + length);
-    osc.connect(env).connect(pan);
-    osc.start(t);
-    osc.stop(t + length + 0.02);
-
     const click = ctx.createBufferSource();
     click.buffer = noiseBuffer(ctx, 'pink');
-    const clickFilter = ctx.createBiquadFilter();
-    clickFilter.type = 'bandpass';
-    clickFilter.frequency.value = pitch * 0.7;
-    clickFilter.Q.value = 0.8;
-    const clickEnv = ctx.createGain();
-    clickEnv.gain.setValueAtTime(level * 0.8, t);
-    clickEnv.gain.exponentialRampToValueAtTime(0.0001, t + 0.008);
-    click.connect(clickFilter).connect(clickEnv).connect(pan);
-    click.start(t, Math.random() * 1.9, 0.012);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = centre;
+    filter.Q.value = 1.2;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(level, t);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.004 + Math.random() * 0.01);
+    click.connect(filter).connect(env).connect(pan);
+    click.start(t, Math.random() * 1.9, 0.02);
+  }
+
+  /** A drip into a puddle: a short, low, falling sine with a soft attack. */
+  private plop(t: number, pitch: number, level: number): void {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.frequency.setValueAtTime(pitch * 1.4, t);
+    osc.frequency.exponentialRampToValueAtTime(pitch, t + 0.05);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(level, t + 0.006);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    osc.connect(env).connect(this.drops);
+    osc.start(t);
+    osc.stop(t + 0.15);
   }
 }

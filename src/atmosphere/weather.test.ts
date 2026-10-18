@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Weather, WEATHER_TARGETS, weatherKind } from './weather';
+import { MENU_TRANSITION, Weather, WEATHER_TARGETS, weatherKind } from './weather';
 
 const run = (w: Weather, seconds: number, dt = 0.5) => {
   for (let t = 0; t < seconds; t += dt) w.step(dt);
@@ -79,5 +79,17 @@ describe('Weather', () => {
     expect(weatherKind('haze')).toBe('fog');
     expect(weatherKind('storm')).toBe('storm');
     expect(weatherKind('snow')).toBeNull();
+  });
+
+  it('switches within seconds when the player picks a weather in the menu', () => {
+    const w = new Weather(1, 'clear');
+    w.force('fog', MENU_TRANSITION);
+    run(w, MENU_TRANSITION + 0.5, 0.1);
+    expect(w.state.fog).toBeCloseTo(WEATHER_TARGETS.fog.fog, 5);
+    expect(w.state.cloudiness).toBeCloseTo(WEATHER_TARGETS.fog.cloudiness, 3);
+    w.force('storm', MENU_TRANSITION);
+    run(w, MENU_TRANSITION + 0.5, 0.1);
+    expect(w.state.rain).toBeCloseTo(1, 3);
+    expect(w.state.storm).toBeCloseTo(1, 3);
   });
 });

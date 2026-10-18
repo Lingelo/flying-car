@@ -38,6 +38,8 @@ const NEXT: Record<WeatherKind, [WeatherKind, number][]> = {
 
 /** Seconds for a full transition between two weathers. */
 const TRANSITION = 60;
+/** Seconds for a change asked from the settings menu: the player expects to see it at once. */
+export const MENU_TRANSITION = 4;
 const WET_RATE = 1 / 40;
 const DRY_RATE = 1 / 180;
 
@@ -47,6 +49,7 @@ export class Weather {
   forced: WeatherKind | null = null;
   readonly state: WeatherState;
   private remaining: number;
+  private transition = TRANSITION;
   private readonly rng: Rng;
 
   constructor(seed: number, initial: WeatherKind = 'clear') {
@@ -61,10 +64,16 @@ export class Weather {
   }
 
   /** Forces a weather from the settings; `null` gives control back to the cycle. */
-  force(kind: WeatherKind | null): void {
+  force(kind: WeatherKind | null, transition = TRANSITION): void {
     this.forced = kind;
+    this.transition = kind ? transition : TRANSITION;
     if (kind) this.kind = kind;
     this.remaining = this.duration();
+  }
+
+  /** Jumps to the current kind's state at once (start-up), streets as wet as the rain. */
+  snap(): void {
+    Object.assign(this.state, WEATHER_TARGETS[this.kind], { wetness: WEATHER_TARGETS[this.kind].rain });
   }
 
   step(dt: number): void {
@@ -80,15 +89,17 @@ export class Weather {
           }
         }
         this.remaining = this.duration();
+        this.transition = TRANSITION;
       }
     }
     const target = WEATHER_TARGETS[this.kind];
     const s = this.state;
     const move = (value: number, to: number, range: number) => value + Math.max(-range, Math.min(range, to - value));
-    s.cloudiness = move(s.cloudiness, target.cloudiness, dt / TRANSITION);
-    s.rain = move(s.rain, target.rain, dt / TRANSITION);
-    s.storm = move(s.storm, target.storm, dt / TRANSITION);
-    s.fog = move(s.fog, target.fog, (dt / TRANSITION) * 0.003);
+    const step = dt / this.transition;
+    s.cloudiness = move(s.cloudiness, target.cloudiness, step);
+    s.rain = move(s.rain, target.rain, step);
+    s.storm = move(s.storm, target.storm, step);
+    s.fog = move(s.fog, target.fog, step * 0.003);
     s.wetness = s.rain > 0.1 ? move(s.wetness, Math.max(s.wetness, s.rain), dt * WET_RATE) : move(s.wetness, 0, dt * DRY_RATE);
   }
 }
