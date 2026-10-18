@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createLoop } from './core/loop';
 import { parseSeed } from './core/seed';
 import { Environment } from './atmosphere/environment';
+import { Rain } from './atmosphere/rain';
 import { SkyRig } from './atmosphere/sky';
 import { CameraRig } from './camera/rig';
 import { createGame } from './game';
@@ -20,10 +21,15 @@ const fog = new THREE.FogExp2(0x0b0716, 0.0016);
 scene.fog = fog;
 const camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.3, 3000);
 
-const environment = new Environment();
+const seed = parseSeed(location.search);
+const environment = new Environment(seed);
+const weatherParam = new URLSearchParams(location.search).get('weather');
+if (weatherParam === 'clear' || weatherParam === 'haze' || weatherParam === 'rain') environment.weather.force(weatherParam);
 const hourParam = Number(new URLSearchParams(location.search).get('hour'));
 if (Number.isFinite(hourParam) && new URLSearchParams(location.search).has('hour')) environment.hour = ((hourParam % 24) + 24) % 24;
 const sky = new SkyRig(scene);
+const rain = new Rain();
+scene.add(rain.mesh);
 
 window.addEventListener('resize', () => {
   camera.aspect = container.clientWidth / container.clientHeight;
@@ -31,7 +37,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(container.clientWidth, container.clientHeight);
 });
 
-const game = await createGame(scene, renderer.domElement, parseSeed(location.search));
+const game = await createGame(scene, renderer.domElement, seed);
 
 const rig = new CameraRig(camera, game.world);
 let t = 0;
@@ -52,6 +58,13 @@ createLoop(
     rig.update(frameDt, game.car.state, game.input.look);
     const p = game.car.state.position;
     sky.update(environment, new THREE.Vector3(p.x, p.y, p.z), camera, fog);
+    const w = environment.weather.state;
+    fog.density = w.fog;
+    sky.setCloudiness(w.cloudiness);
+    sky.sun.intensity *= 1 - 0.75 * w.cloudiness;
+    cityUniforms.uWetness.value = w.wetness;
+    cityUniforms.uRain.value = w.rain;
+    rain.update(camera, w.rain);
     renderer.render(scene, camera);
   },
 ).start();

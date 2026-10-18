@@ -24,6 +24,8 @@ vRoadWorld = (modelMatrix * vec4(position, 1.0)).xyz;`);
       .replace('#include <common>', `#include <common>
 uniform float uNight;
 uniform float uWetness;
+uniform float uRain;
+uniform float uTime;
 varying vec2 vRoadUv;
 varying vec4 vRoad;
 varying vec3 vRoadWorld;
@@ -65,6 +67,12 @@ float puddle;`)
   float grain = roadNoise(vRoadWorld.xz * 2.0) * 0.06;
   diffuseColor.rgb = mix(diffuseColor.rgb + grain, vec3(0.75), paint * 0.85);
   puddle = smoothstep(0.55, 0.7, roadNoise(vRoadWorld.xz * 0.12) * 0.7 + roadNoise(vRoadWorld.xz * 0.5) * 0.3);
+  // Rain ripples in the puddles: expanding rings in a 1.5 m grid, each with its own phase.
+  vec2 cellR = floor(vRoadWorld.xz / 1.5);
+  vec2 fr = fract(vRoadWorld.xz / 1.5) - 0.5;
+  float phase = fract(uTime * 1.2 + roadHash(cellR) * 7.0);
+  float ring = smoothstep(0.05, 0.0, abs(length(fr) - phase * 0.5)) * (1.0 - phase);
+  diffuseColor.rgb += vec3(0.12) * ring * puddle * uRain;
 }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, mix(0.25, 0.03, puddle), uWetness);
