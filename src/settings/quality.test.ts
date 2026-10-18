@@ -39,3 +39,17 @@ describe('quality presets', () => {
     for (const q of Object.values(QUALITY)) expect(q.lodRadius).toBeLessThan(q.ringRadius);
   });
 });
+
+describe('ambient occlusion and reflections per preset', () => {
+  it('has no AO on low, half-resolution AO on medium, full on high', () => {
+    expect(QUALITY.low.ao).toBe('off');
+    expect(QUALITY.medium.ao).toBe('half');
+    expect(QUALITY.high.ao).toBe('full');
+  });
+
+  it('renders real reflections on high only', () => {
+    expect(QUALITY.low.reflections).toBe(false);
+    expect(QUALITY.medium.reflections).toBe(false);
+    expect(QUALITY.high.reflections).toBe(true);
+  });
+});

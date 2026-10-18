@@ -3,6 +3,10 @@ export const QUALITY_NAMES: QualityName[] = ['low', 'medium', 'high'];
 export const QUALITY_LABELS: Record<QualityName, string> = { low: 'Basse', medium: 'Moyenne', high: 'Haute' };
 
 export interface QualityPreset {
+  /** Screen-space ambient occlusion (N8AO). */
+  ao: 'off' | 'half' | 'full';
+  /** Real planar reflections on wet streets (otherwise faked streaks). */
+  reflections: boolean;
   /** Shadow map size, 0 = no shadows. */
   shadows: number;
   bloom: boolean;
@@ -19,9 +23,9 @@ export interface QualityPreset {
 }
 
 export const QUALITY: Record<QualityName, QualityPreset> = {
-  low: { shadows: 0, bloom: false, smaa: false, rain: 0.35, ringRadius: 3, lodRadius: 2, traffic: 110, maxPixelRatio: 0.85, minPixelRatio: 0.6 },
-  medium: { shadows: 1024, bloom: true, smaa: true, rain: 0.65, ringRadius: 4, lodRadius: 3, traffic: 190, maxPixelRatio: 1, minPixelRatio: 0.75 },
-  high: { shadows: 2048, bloom: true, smaa: true, rain: 1, ringRadius: 5, lodRadius: 3, traffic: 260, maxPixelRatio: 1.5, minPixelRatio: 1 },
+  low: { ao: 'off', reflections: false, shadows: 0, bloom: false, smaa: false, rain: 0.35, ringRadius: 3, lodRadius: 2, traffic: 110, maxPixelRatio: 0.85, minPixelRatio: 0.6 },
+  medium: { ao: 'half', reflections: false, shadows: 1024, bloom: true, smaa: true, rain: 0.65, ringRadius: 4, lodRadius: 3, traffic: 190, maxPixelRatio: 1, minPixelRatio: 0.75 },
+  high: { ao: 'full', reflections: true, shadows: 2048, bloom: true, smaa: true, rain: 1, ringRadius: 5, lodRadius: 3, traffic: 260, maxPixelRatio: 1.5, minPixelRatio: 1 },
 };
 
 /** Rendering pixel ratio: the device ratio bounded by the preset. */

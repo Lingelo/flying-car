@@ -9,6 +9,7 @@ import {
   ToneMappingMode,
   VignetteEffect,
 } from 'postprocessing';
+import { N8AOPostPass } from 'n8ao';
 import { QUALITY, pixelRatioFor, type QualityName } from '../settings/quality';
 
 /**
@@ -19,6 +20,7 @@ export class RenderPipeline {
   readonly renderer: THREE.WebGLRenderer;
   private readonly composer: EffectComposer;
   private effectPasses: EffectPass[] = [];
+  private aoPass: N8AOPostPass | null = null;
   private readonly pmrem: THREE.PMREMGenerator;
   private readonly envScene = new THREE.Scene();
   private envTarget: THREE.WebGLRenderTarget | null = null;
@@ -69,6 +71,26 @@ export class RenderPipeline {
     for (const pass of this.effectPasses) {
       this.composer.removePass(pass);
       pass.dispose();
+    }
+    if (this.aoPass) {
+      this.composer.removePass(this.aoPass);
+      this.aoPass.dispose();
+      this.aoPass = null;
+    }
+    if (q.ao !== 'off') {
+      // Ambient occlusion right after the scene render, before bloom and tone mapping.
+      this.aoPass = new N8AOPostPass(this.scene, this.camera, size.x, size.y);
+      Object.assign(this.aoPass.configuration, {
+        aoRadius: 6,
+        distanceFalloff: 1.5,
+        intensity: 3.2,
+        halfRes: q.ao === 'half',
+        depthAwareUpsampling: true,
+        gammaCorrection: false,
+        transparencyAware: false,
+      });
+      this.aoPass.setQualityMode(q.ao === 'half' ? 'Low' : 'Medium');
+      this.composer.addPass(this.aoPass);
     }
     // Convolution effects (SMAA) cannot share a pass with others.
     const effects = [];
