@@ -12,7 +12,7 @@ export class TrafficStreaks {
 
   constructor(private readonly perLane = 26) {
     this.material = new THREE.ShaderMaterial({
-      uniforms: { ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog), uTime: cityUniforms.uTime, uCentre: { value: new THREE.Vector2() }, uSpan: { value: 2600 }, uInner: { value: 420 } },
+      uniforms: { ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog), uTime: cityUniforms.uTime, uNight: cityUniforms.uNight, uCentre: { value: new THREE.Vector2() }, uSpan: { value: 2600 }, uInner: { value: 420 } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -42,11 +42,13 @@ void main() {
 }`,
       fragmentShader: `#include <common>
 #include <fog_pars_fragment>
+uniform float uNight;
 varying float vDir;
 varying float vFade;
 void main() {
   float d = length(gl_PointCoord - 0.5);
-  float a = smoothstep(0.5, 0.1, d) * vFade;
+  // Head and tail lights barely show in daylight.
+  float a = smoothstep(0.5, 0.1, d) * vFade * mix(0.12, 1.0, uNight);
   vec3 col = vDir > 0.0 ? vec3(1.6, 1.5, 1.3) : vec3(1.8, 0.15, 0.2);
   gl_FragColor = vec4(col * a, a);
   #include <fog_fragment>
