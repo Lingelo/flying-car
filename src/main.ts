@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createLoop } from './core/loop';
 import { parseSeed } from './core/seed';
+import { CameraRig } from './camera/rig';
 import { createGame } from './game';
 import { cityUniforms } from './render/materials/cityUniforms';
 
@@ -31,9 +32,9 @@ window.addEventListener('resize', () => {
 
 const game = await createGame(scene, renderer.domElement, parseSeed(location.search));
 
-// Provisional chase camera, replaced by the camera rig (U11).
-const camTarget = new THREE.Vector3();
+const rig = new CameraRig(camera, game.world);
 let t = 0;
+let last = performance.now();
 createLoop(
   (dt) => {
     t += dt;
@@ -41,12 +42,12 @@ createLoop(
     game.step(dt);
   },
   () => {
+    const now = performance.now();
+    const frameDt = Math.min(0.1, (now - last) / 1000);
+    last = now;
     game.frame();
-    const s = game.car.state;
-    const f = game.car.forward();
-    camera.position.lerp(new THREE.Vector3(s.position.x - f.x * 9, s.position.y + 3.2, s.position.z - f.z * 9), 0.15);
-    camTarget.set(s.position.x + f.x * 6, s.position.y + 1, s.position.z + f.z * 6);
-    camera.lookAt(camTarget);
+    if (game.input.pressed('camera')) rig.next();
+    rig.update(frameDt, game.car.state, game.input.look);
     renderer.render(scene, camera);
   },
 ).start();

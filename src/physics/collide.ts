@@ -101,6 +101,20 @@ export class CollisionWorld {
     this.vehicles = vehicles;
   }
 
+  /** Fraction in [0, 1] along the segment where it first enters a building, or null (camera occlusion). */
+  segmentHit(from: Vec3, to: Vec3): number | null {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const dz = to.z - from.z;
+    const length = Math.hypot(dx, dz);
+    let best: number | null = null;
+    for (const b of this.hash.query((from.x + to.x) / 2, (from.z + to.z) / 2, length / 2 + 1)) {
+      const t = segmentBox(from, dx, dy, dz, b);
+      if (t !== null && (best === null || t < best)) best = t;
+    }
+    return best;
+  }
+
   /** Height of the highest roof under (x, z) that is not above the car, or 0 for the street. */
   floorAt(x: number, z: number, y: number): number {
     let floor = 0;
@@ -142,4 +156,28 @@ export class CollisionWorld {
     if (hit) car.setVelocity(v);
     return hit;
   }
+}
+
+/** Slab test: entry fraction of the segment from + t·d (t in [0, 1]) into the box, or null. */
+function segmentBox(from: Vec3, dx: number, dy: number, dz: number, b: Box): number | null {
+  let t0 = 0;
+  let t1 = 1;
+  const slabs: [number, number, number, number][] = [
+    [from.x, dx, b.x - b.w / 2, b.x + b.w / 2],
+    [from.y, dy, b.y0, b.y1],
+    [from.z, dz, b.z - b.d / 2, b.z + b.d / 2],
+  ];
+  for (const [o, d, lo, hi] of slabs) {
+    if (Math.abs(d) < 1e-9) {
+      if (o < lo || o > hi) return null;
+      continue;
+    }
+    let a = (lo - o) / d;
+    let c = (hi - o) / d;
+    if (a > c) [a, c] = [c, a];
+    t0 = Math.max(t0, a);
+    t1 = Math.min(t1, c);
+    if (t0 > t1) return null;
+  }
+  return t0;
 }
