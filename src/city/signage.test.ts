@@ -84,3 +84,48 @@ describe('placeSteamVents', () => {
     }
   });
 });
+
+describe('Tokyo signage', () => {
+  const scan = (district: Chunk['district']) => {
+    const found: { chunk: Chunk; signs: Sign[] }[] = [];
+    for (let x = -12; x < 12; x++)
+      for (let z = -12; z < 12; z++) {
+        const chunk = generateChunk(2077, x, z);
+        if (chunk.district === district) found.push({ chunk, signs: placeSigns(chunk, 2077).signs });
+      }
+    return found;
+  };
+
+  it('stacks vertical signs on building corners in the neon district', () => {
+    let stacked = 0;
+    for (const { chunk, signs } of scan('neon')) {
+      for (const b of chunk.buildings) {
+        const t = b.tiers[0];
+        const atCorner = signs.filter(
+          (s) => s.kind === 'vertical' && Math.abs(Math.abs(s.x - t.x) - t.w / 2) < 0.6 && Math.abs(Math.abs(s.z - t.z) - t.d / 2) < 0.6,
+        );
+        // a stack: several blades at the same corner, one above the other
+        const byCorner = new Map<string, number>();
+        for (const s of atCorner) byCorner.set(`${Math.round(s.x)},${Math.round(s.z)}`, (byCorner.get(`${Math.round(s.x)},${Math.round(s.z)}`) ?? 0) + 1);
+        for (const n of byCorner.values()) if (n >= 3) stacked++;
+      }
+    }
+    expect(stacked).toBeGreaterThan(10);
+  });
+
+  it('puts giant screens only at avenue corners of the neon and downtown districts', () => {
+    let screens = 0;
+    for (const district of ['neon', 'downtown', 'canals', 'industrial'] as const) {
+      for (const { chunk, signs } of scan(district)) {
+        for (const s of signs.filter((s) => s.kind === 'screen')) {
+          screens++;
+          expect(['neon', 'downtown']).toContain(district);
+          // on the avenue side of the chunk's first block
+          expect(Math.min(s.x - chunk.origin.x, s.z - chunk.origin.z)).toBeLessThan(20);
+          expect(s.w).toBeGreaterThan(12);
+        }
+      }
+    }
+    expect(screens).toBeGreaterThan(5);
+  });
+});

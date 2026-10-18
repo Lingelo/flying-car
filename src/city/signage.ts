@@ -4,7 +4,7 @@ import { DISTRICTS } from './districts';
 import type { Chunk } from './generator';
 
 export interface Sign {
-  kind: 'billboard' | 'vertical';
+  kind: 'billboard' | 'vertical' | 'screen';
   /** Attachment point on the wall (centre of a billboard, inner edge of a vertical sign). */
   x: number;
   y: number;
@@ -42,8 +42,52 @@ export function placeSigns(chunk: Chunk, seed: number): { signs: Sign[]; hologra
   const signs: Sign[] = [];
   const holograms: Hologram[] = [];
 
+  const tokyo = chunk.district === 'neon' || chunk.district === 'downtown';
   for (const building of chunk.buildings) {
     const t = building.tiers[0];
+    const placed: Sign[] = [];
+    const add = (sign: Sign) => {
+      if (placed.some((o) => sameWallOverlap(o, sign))) return false;
+      placed.push(sign);
+      signs.push(sign);
+      return true;
+    };
+
+    // Giant screens on the buildings at an avenue crossing (the chunk's first block), Shibuya style.
+    const atCrossing = t.x - t.w / 2 - chunk.origin.x < 20 && t.z - t.d / 2 - chunk.origin.z < 20;
+    if (tokyo && atCrossing && rng.chance(0.85)) {
+      const [nx, nz] = rng.pick<[number, number]>([[-1, 0], [0, -1]]);
+      const wallW = nx === 0 ? t.w : t.d;
+      const w = Math.min(wallW - 2, 26);
+      const h = w * 0.56;
+      const yMin = Math.max(18, h / 2 + 8);
+      const yMax = t.y1 - 2 - h / 2;
+      if (w > 12 && yMax > yMin) {
+        add({ kind: 'screen', x: t.x + (nx * t.w) / 2, z: t.z + (nz * t.d) / 2, y: rng.range(yMin, yMax), w, h, nx, nz, hue: rng.int(0, 3), seed: rng.next() });
+      }
+    }
+
+    // Stacks of vertical blades on the corners, one above the other.
+    if (tokyo) {
+      for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+        if (!rng.chance(chunk.district === 'neon' ? 0.5 : 0.22)) continue;
+        const onX = rng.chance(0.5);
+        const nx = onX ? sx : 0;
+        const nz = onX ? 0 : sz;
+        const x = onX ? t.x + (sx * t.w) / 2 : t.x + sx * (t.w / 2 - 0.3);
+        const z = onX ? t.z + sz * (t.d / 2 - 0.3) : t.z + (sz * t.d) / 2;
+        const count = rng.int(3, 6);
+        let y = 4;
+        const top = Math.min(t.y1 - 1, 60);
+        for (let k = 0; k < count; k++) {
+          const h = rng.range(5, 9);
+          if (y + h > top) break;
+          add({ kind: 'vertical', x, z, y: y + h / 2, w: VERTICAL_WIDTH, h, nx, nz, hue: rng.int(0, 3), seed: rng.next() });
+          y += h + 0.6;
+        }
+      }
+    }
+
     for (const [nx, nz] of WALLS) {
       const wallW = nx === 0 ? t.w : t.d;
       const cx = t.x + (nx * t.w) / 2;
@@ -53,8 +97,6 @@ export function placeSigns(chunk: Chunk, seed: number): { signs: Sign[]; hologra
       const tz = -nx;
       const at = (a: number) => ({ x: cx + tx * a, z: cz + tz * a });
 
-      let billboardAt: number | undefined;
-      let billboardW = 0;
       if (rng.chance(district.signDensity * 0.45)) {
         const w = Math.min(rng.range(6, 14), wallW - 2);
         const h = w * 0.56;
@@ -62,20 +104,15 @@ export function placeSigns(chunk: Chunk, seed: number): { signs: Sign[]; hologra
         const yMax = Math.min(t.y1 - 2 - h / 2, 70);
         if (w >= 4 && yMax > yMin) {
           const a = rng.range(-(wallW - w) / 2, (wallW - w) / 2);
-          signs.push({ kind: 'billboard', ...at(a), y: rng.range(yMin, yMax), w, h, nx, nz, hue: rng.int(0, 3), seed: rng.next() });
-          billboardAt = a;
-          billboardW = w;
+          add({ kind: 'billboard', ...at(a), y: rng.range(yMin, yMax), w, h, nx, nz, hue: rng.int(0, 3), seed: rng.next() });
         }
       }
       if (wallW > 4 && rng.chance(district.signDensity * 0.5)) {
         const a = rng.pick([-1, 1]) * (wallW / 2 - 1.2);
-        const clear = billboardAt === undefined || Math.abs(a - billboardAt) * 2 >= billboardW + VERTICAL_WIDTH;
         const h = rng.range(6, 16);
         const yMin = 5 + h / 2;
         const yMax = Math.min(t.y1 - 1 - h / 2, 50);
-        if (clear && yMax > yMin) {
-          signs.push({ kind: 'vertical', ...at(a), y: rng.range(yMin, yMax), w: VERTICAL_WIDTH, h, nx, nz, hue: rng.int(0, 3), seed: rng.next() });
-        }
+        if (yMax > yMin) add({ kind: 'vertical', ...at(a), y: rng.range(yMin, yMax), w: VERTICAL_WIDTH, h, nx, nz, hue: rng.int(0, 3), seed: rng.next() });
       }
     }
 
@@ -87,6 +124,14 @@ export function placeSigns(chunk: Chunk, seed: number): { signs: Sign[]; hologra
     }
   }
   return { signs, holograms };
+}
+
+/** Two signs on the same wall that overlap along it and in height. */
+function sameWallOverlap(a: Sign, b: Sign): boolean {
+  if (a.nx !== b.nx || a.nz !== b.nz) return false;
+  if (Math.abs((a.x - b.x) * a.nx + (a.z - b.z) * a.nz) >= 0.5) return false;
+  const along = Math.abs((a.x - b.x) * a.nz - (a.z - b.z) * a.nx);
+  return along * 2 < a.w + b.w && Math.abs(a.y - b.y) * 2 < a.h + b.h;
 }
 
 /** Steam rising from street grates. */
@@ -109,8 +154,8 @@ export function buildSignGeometry(signs: Sign[], ox: number, oz: number): Geomet
     const z = s.z - oz;
     const y0 = s.y - s.h / 2;
     const y1 = s.y + s.h / 2;
-    const info: [number, number, number, number] = [s.kind === 'billboard' ? 0 : 1, s.hue, s.seed, s.w / s.h];
-    if (s.kind === 'billboard') {
+    const info: [number, number, number, number] = [s.kind === 'billboard' ? 0 : s.kind === 'screen' ? 3 : 1, s.hue, s.seed, s.w / s.h];
+    if (s.kind !== 'vertical') {
       const off = 0.2;
       const tx = s.nz;
       const tz = -s.nx;
