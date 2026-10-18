@@ -12,6 +12,7 @@ import { createGame, safeLocalStorage } from './game';
 import { installHeightFog } from './render/fog';
 import { cityUniforms } from './render/materials/cityUniforms';
 import { RenderPipeline } from './render/pipeline';
+import { PlanarReflection } from './render/reflection';
 import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 import { loadSettings, saveSettings, type Settings } from './settings/store';
@@ -36,6 +37,12 @@ const sky = new SkyRig(scene);
 const rain = new Rain();
 scene.add(rain.mesh);
 const pipeline = new RenderPipeline(container, scene, camera, sky.sun);
+const reflection = new PlanarReflection(pipeline.renderer);
+/** Mirrored scene first (wet streets, high quality), then the post-processed frame. */
+function renderFrame(dt: number): void {
+  reflection.update(scene, camera, QUALITY[quality].reflections, cityUniforms.uWetness.value, [rain.mesh]);
+  pipeline.render(dt);
+}
 
 window.addEventListener('resize', () => pipeline.resize(container.clientWidth, container.clientHeight));
 
@@ -96,7 +103,7 @@ const photo = new PhotoMode(camera, {
     hud.setHidden(hidden);
     hud.setPhotoHint(hidden);
   },
-  renderFrame: () => pipeline.render(0),
+  renderFrame: () => renderFrame(0),
   toBlob: (cb) => cb(canvasToPngBlob(pipeline.renderer.domElement)),
   download: (blob, name) => {
     downloadBlob(blob, name);
@@ -148,7 +155,7 @@ createLoop(
     const view = game.render(paused ? 1 : alpha, frameDt);
     if (menu.isOpen) {
       if (game.input.pressed('menu')) menu.close();
-      pipeline.render(frameDt);
+      renderFrame(frameDt);
       return;
     }
     if (game.input.pressed('menu')) {
@@ -166,7 +173,7 @@ createLoop(
       photo.update(game.input.look, wheel - game.input.axes.throttle * frameDt * 12);
       wheel = 0;
       if (game.input.pressed('capture')) photo.capture();
-      pipeline.render(frameDt);
+      renderFrame(frameDt);
       return;
     }
     if (game.input.pressed('hud')) hud.toggle();
@@ -208,7 +215,7 @@ createLoop(
       now,
     );
     pipeline.update(sky.dome, environment.hour, w.cloudiness, cityUniforms.uNight.value, focus);
-    pipeline.render(frameDt);
+    renderFrame(frameDt);
   },
 ).start();
 

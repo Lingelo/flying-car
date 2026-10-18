@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { REFLECTION_FRAGMENT_PARS, REFLECTION_VERTEX, reflectionFragment } from '../reflection';
 import { cityUniforms } from './cityUniforms';
 
 /** Asphalt with lane markings drawn from the road UVs (u across in metres, v along in metres). */
@@ -15,8 +16,10 @@ attribute vec2 aUv;
 attribute vec4 aInfo;
 varying vec2 vRoadUv;
 varying vec4 vRoad;
-varying vec3 vRoadWorld;`)
+varying vec3 vRoadWorld;
+${REFLECTION_VERTEX.pars}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
+${REFLECTION_VERTEX.main}
 vRoadUv = aUv;
 vRoad = aInfo;
 vRoadWorld = (modelMatrix * vec4(position, 1.0)).xyz;`);
@@ -29,6 +32,7 @@ uniform float uTime;
 varying vec2 vRoadUv;
 varying vec4 vRoad;
 varying vec3 vRoadWorld;
+${REFLECTION_FRAGMENT_PARS}
 float roadHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float roadNoise(vec2 p) {
   vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -91,11 +95,12 @@ diffuseColor.rgb *= mix(1.0, 0.55, uWetness);`)
     vec3 neon = h < 0.25 ? vec3(1.0, 0.16, 0.75) : h < 0.5 ? vec3(0.1, 0.85, 1.0) : h < 0.75 ? vec3(0.55, 0.25, 1.0) : vec3(1.0, 0.62, 0.12);
     float on = step(0.35, roadHash(vec2(seg, 7.0)));
     float fresnel = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 3.0);
-    totalEmissiveRadiance += neon * kerb * streaks * on * fresnel * uWetness * mix(0.3, 1.0, puddle) * uNight * 0.8;
+    totalEmissiveRadiance += neon * kerb * streaks * on * fresnel * uWetness * mix(0.3, 1.0, puddle) * uNight * 0.8 * (1.0 - uReflectionOn);
   }
-}`);
+}
+${reflectionFragment('uWetness * mix(0.18, 0.85, puddle)', 'puddle', 'vec2(roadNoise(vRoadWorld.xz * 3.0 + uTime) - 0.5, 0.0) * 0.004 * uRain')}`);
   };
-  material.customProgramCacheKey = () => 'road-v1';
+  material.customProgramCacheKey = () => 'road-v2';
   return material;
 }
 
@@ -107,13 +112,16 @@ export function createGroundMaterial(): THREE.MeshStandardMaterial {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 attribute vec2 aUv;
-varying vec2 vGroundUv;`)
+varying vec2 vGroundUv;
+${REFLECTION_VERTEX.pars}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
+${REFLECTION_VERTEX.main}
 vGroundUv = aUv;`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 uniform float uWetness;
-varying vec2 vGroundUv;`)
+varying vec2 vGroundUv;
+${REFLECTION_FRAGMENT_PARS}`)
       .replace('#include <color_fragment>', `#include <color_fragment>
 {
   vec2 g = abs(fract(vGroundUv / 2.0) - 0.5);
@@ -122,14 +130,31 @@ varying vec2 vGroundUv;`)
   diffuseColor.rgb *= 1.0 - 0.35 * joint;
 }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor, 0.2, uWetness);`);
+roughnessFactor = mix(roughnessFactor, 0.2, uWetness);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+${reflectionFragment('uWetness * 0.35', '0.15', 'vec2(0.0)')}`);
   };
-  material.customProgramCacheKey = () => 'ground-v1';
+  material.customProgramCacheKey = () => 'ground-v2';
   return material;
 }
 
 export function createWaterMaterial(): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ color: 0x03080f, roughness: 0.04, metalness: 0.2 });
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, cityUniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+${REFLECTION_VERTEX.pars}`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+${REFLECTION_VERTEX.main}`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform float uTime;
+${REFLECTION_FRAGMENT_PARS}`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+${reflectionFragment('0.85', '0.8', 'vec2(sin(vReflectionUv.x * 40.0 + uTime) , cos(vReflectionUv.y * 30.0 + uTime * 0.7)) * 0.003')}`);
+  };
+  material.customProgramCacheKey = () => 'water-v2';
   material.polygonOffset = true;
   material.polygonOffsetFactor = -2;
   material.polygonOffsetUnits = -4;
