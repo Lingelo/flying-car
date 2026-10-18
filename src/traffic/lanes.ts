@@ -53,7 +53,8 @@ export function lanesForChunk(cx: number, cz: number): Lane[] {
           });
         });
       }
-      const offsets = avenue ? [2, 6, 10] : [3.5];
+      // Avenue lanes leave a 3 m median (elevated railway pillars).
+      const offsets = avenue ? [3.25, 6.75, 10] : [3.5];
       for (const dir of [1, -1] as const) {
         offsets.forEach((offset, k) => {
           // Right-hand traffic: facing +z the right is -x, facing +x the right is +z.

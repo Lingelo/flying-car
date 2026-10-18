@@ -57,8 +57,8 @@ float puddle;`)
     paint += line(u, halfW - 0.6, 0.1);
     paint += line(u, -halfW + 0.6, 0.1);
     if (avenue) {
-      paint += line(u, 0.18, 0.07) + line(u, -0.18, 0.07);
-      paint += (line(u, 4.0, 0.08) + line(u, -4.0, 0.08) + line(u, 8.0, 0.08) + line(u, -8.0, 0.08)) * dash;
+      paint += line(u, 1.5, 0.08) + line(u, -1.5, 0.08);
+      paint += (line(u, 5.0, 0.08) + line(u, -5.0, 0.08) + line(u, 8.5, 0.08) + line(u, -8.5, 0.08)) * dash;
     } else {
       paint += line(u, 0.0, 0.08) * dash;
     }

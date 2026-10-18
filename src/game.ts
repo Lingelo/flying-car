@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CityView, type ChunkHandle } from './city/cityView';
+import { TrainView } from './city/trains';
 import { districtAt, CHUNK_SIZE, BLOCK_SIZE, type Box } from './city/generator';
 import { WorkerChunkSource, type ChunkPayload } from './city/payload';
 import { ChunkStreamer, type ChunkSink } from './city/streamer';
@@ -17,7 +18,7 @@ import { createCarVisual, type CarVisual } from './vehicle/carModel';
 
 /** Static collision boxes of a chunk: building tiers and skywalks. */
 function chunkBoxes(payload: ChunkPayload): Box[] {
-  return [...payload.chunk.buildings.flatMap((b) => b.tiers), ...payload.chunk.walkways];
+  return [...payload.chunk.buildings.flatMap((b) => b.tiers), ...payload.chunk.walkways, ...(payload.rail.pillars.length ? [payload.rail.deck, ...payload.rail.pillars] : [])];
 }
 
 /** City view that also feeds the collision world. */
@@ -105,6 +106,8 @@ export async function createGame(scene: THREE.Scene, canvas: HTMLCanvasElement, 
   const visual = await createCarVisual();
   scene.add(visual.root);
 
+  const trains = new TrainView(seed);
+  scene.add(trains.mesh, trains.windows);
   const traffic = new TrafficSim({ maxVehicles: MAX_TRAFFIC, seed, areaRadius: 450 });
   const trafficView = new TrafficRender(MAX_TRAFFIC);
   scene.add(trafficView.group);
@@ -158,6 +161,7 @@ export async function createGame(scene: THREE.Scene, canvas: HTMLCanvasElement, 
         refreshLanes();
       }
       trafficView.update(traffic, simTime, car.state.position);
+      trains.update(sink.loaded.values(), simTime);
     },
     render(alpha, frameDt) {
       const s = car.state;

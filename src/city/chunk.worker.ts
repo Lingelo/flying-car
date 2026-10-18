@@ -17,7 +17,7 @@ self.onmessage = (event: MessageEvent<Request>) => {
     self.postMessage({ cx, cz, failed: true });
     return;
   }
-  const buffers = [payload.buildings, payload.buildingsLod, payload.ground.roads, payload.ground.ground, payload.ground.water, payload.signs, payload.holograms].flatMap(transferables);
+  const buffers = [payload.buildings, payload.buildingsLod, payload.ground.roads, payload.ground.ground, payload.ground.water, payload.signs, payload.holograms, payload.railStructure, payload.railLights].flatMap(transferables);
   buffers.push(payload.steam.buffer as ArrayBuffer);
   (self as unknown as Worker).postMessage(payload, buffers);
 };
