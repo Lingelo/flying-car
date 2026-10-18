@@ -160,7 +160,7 @@ ${REFLECTION_VERTEX.main}`);
 uniform float uTime;
 ${REFLECTION_FRAGMENT_PARS}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-${reflectionFragment('0.85', '0.8', 'vec2(sin(vReflectionUv.x * 40.0 + uTime) , cos(vReflectionUv.y * 30.0 + uTime * 0.7)) * 0.003')}`);
+${reflectionFragment('0.85', '0.8', 'vec2(sin(vReflectionUv.x / vReflectionUv.w * 40.0 + uTime), cos(vReflectionUv.y / vReflectionUv.w * 30.0 + uTime * 0.7)) * 0.003')}`);
   };
   material.customProgramCacheKey = () => 'water-v2';
   material.polygonOffset = true;

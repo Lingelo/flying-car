@@ -40,6 +40,16 @@ export interface ChunkHandle {
 
 const EMPTY = new THREE.BufferGeometry();
 
+/**
+ * Many chunk layers are empty (no rail, no temple…): those meshes are hidden instead of getting an
+ * empty geometry, so they cost nothing in the main, reflection and shadow passes.
+ */
+function assign(mesh: THREE.Mesh, data: GeometryData): void {
+  const empty = data.index.length === 0;
+  mesh.geometry = empty ? EMPTY : toBufferGeometry(data);
+  mesh.visible = !empty;
+}
+
 /** Mounts streamed chunks into the scene, reusing pooled meshes. */
 export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
   readonly root = new THREE.Group();
@@ -105,15 +115,15 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     h.buildings.geometry = lod ? h.lod : h.full;
     h.roads.geometry = toBufferGeometry(payload.ground.roads);
     h.ground.geometry = toBufferGeometry(payload.ground.ground);
-    h.water.geometry = toBufferGeometry(payload.ground.water);
-    h.signs.geometry = toBufferGeometry(payload.signs);
-    h.holograms.geometry = toBufferGeometry(payload.holograms);
-    h.railStructure.geometry = toBufferGeometry(payload.railStructure);
-    h.railLights.geometry = toBufferGeometry(payload.railLights);
-    h.streetProps.geometry = toBufferGeometry(payload.streetProps);
-    h.streetGlow.geometry = toBufferGeometry(payload.streetGlow);
-    h.templeProps.geometry = toBufferGeometry(payload.templeProps);
-    h.templeGlow.geometry = toBufferGeometry(payload.templeGlow);
+    assign(h.water, payload.ground.water);
+    assign(h.signs, payload.signs);
+    assign(h.holograms, payload.holograms);
+    assign(h.railStructure, payload.railStructure);
+    assign(h.railLights, payload.railLights);
+    assign(h.streetProps, payload.streetProps);
+    assign(h.streetGlow, payload.streetGlow);
+    assign(h.templeProps, payload.templeProps);
+    assign(h.templeGlow, payload.templeGlow);
     h.holograms.renderOrder = 2;
     const steam = new THREE.BufferGeometry();
     const interleaved = new THREE.InterleavedBuffer(payload.steam, 4);
@@ -131,8 +141,9 @@ export class CityView implements ChunkSink<ChunkPayload, ChunkHandle> {
     h.full?.dispose();
     h.lod?.dispose();
     for (const m of [h.roads, h.ground, h.water, h.signs, h.holograms, h.steam, h.railStructure, h.railLights, h.streetProps, h.streetGlow, h.templeProps, h.templeGlow]) {
-      m.geometry.dispose();
+      if (m.geometry !== EMPTY) m.geometry.dispose();
       m.geometry = EMPTY;
+      m.visible = true;
     }
     h.buildings.geometry = EMPTY;
     h.full = h.lod = undefined;

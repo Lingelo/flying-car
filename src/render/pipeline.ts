@@ -40,6 +40,7 @@ export class RenderPipeline {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(this.renderer.domElement);
     this.composer = new EffectComposer(this.renderer, { frameBufferType: THREE.HalfFloatType });
+    // N8AOPostPass reuses this render and its depth (it does not redraw the scene).
     this.composer.addPass(new RenderPass(scene, camera));
     this.pmrem = new THREE.PMREMGenerator(this.renderer);
 
