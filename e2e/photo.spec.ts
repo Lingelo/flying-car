@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { waitForFrames } from './helpers';
 
 test('photo mode freezes the world and saves a PNG without the HUD (AE11)', async ({ page }, info) => {
-  await page.goto('/?debug=1&hour=21');
+  await page.goto('/?debug=1&quality=low&hour=21');
   await waitForFrames(page, 10);
   await page.keyboard.press('KeyP');
   await expect(page.locator('.hud')).toHaveClass(/hidden/);

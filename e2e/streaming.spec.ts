@@ -4,6 +4,8 @@ import { debugState, waitForFrames } from './helpers';
 // AE5: a long straight flight keeps buildings ahead and memory flat. The flight is accelerated:
 // the car jumps one chunk at a time above the rooftops, giving the streamer a few frames each time.
 test('flying straight for 15 km keeps the city ahead and memory bounded (AE5)', async ({ page }) => {
+  // About 240 rendered frames in software WebGL: several minutes on a CI runner.
+  test.setTimeout(900_000);
   await page.goto('/?debug=1&quality=low');
   await waitForFrames(page, 10);
   const chunks = 60;
