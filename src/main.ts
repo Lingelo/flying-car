@@ -34,6 +34,7 @@ import { saveBindings } from './input/bindings';
 import { QUALITY, QUALITY_NAMES, type QualityName } from './settings/quality';
 import { loadSettings, saveSettings, type Settings } from './settings/store';
 import { Hud } from './ui/hud';
+import { LoadingScreen } from './ui/loading';
 import { SettingsMenu } from './ui/settingsMenu';
 
 installHeightFog();
@@ -64,13 +65,15 @@ function renderFrame(dt: number): void {
 
 window.addEventListener('resize', () => pipeline.resize(container.clientWidth, container.clientHeight));
 
-const game = await createGame(scene, pipeline.renderer.domElement, seed);
+const loading = new LoadingScreen();
+const game = await loading.track('Initialisation', createGame(scene, pipeline.renderer.domElement, seed));
 // Photographic walls replace the procedural ones once the CC0 maps are loaded.
-void loadFacadeTextures();
-void loadGroundTextures();
-void loadSurfaceTextures();
+void loading.track('Façades', loadFacadeTextures(), 3);
+void loading.track('Rues', loadGroundTextures());
+void loading.track('Matériaux', loadSurfaceTextures(), 2);
 // Japanese signs appear once the font subsets they need are loaded.
-void createSignAtlas()
+void loading
+  .track('Enseignes', createSignAtlas(), 2)
   .then((atlas) => {
     signUniforms.uAtlas.value = atlas.fill;
     signUniforms.uTubeAtlas.value = atlas.tube;
@@ -201,6 +204,11 @@ createLoop(
     const frameDt = Math.min(0.1, (now - last) / 1000);
     last = now;
     frames++;
+    if (loading.visible) {
+      // The city around the car is built once nothing is in flight and a few frames have drawn it.
+      const active = game.streamer.active.size;
+      loading.update(frames >= 20 && active > 0 && game.streamer.inFlight === 0 ? 1 : Math.min(0.9, active / 20));
+    }
     bench?.frame(frameDt);
     game.frame(paused);
     const view = game.render(paused ? 1 : alpha, frameDt);

@@ -44,6 +44,11 @@ const key = (cx: number, cz: number) => `${cx},${cz}`;
 export class ChunkStreamer<P extends ChunkKey, H> {
   readonly active = new Map<string, ActiveChunk<P, H>>();
   private readonly pending = new Set<string>();
+
+  /** Chunks requested and not yet mounted (the loading screen waits for none). */
+  get inFlight(): number {
+    return this.pending.size;
+  }
   /** Chunks the source failed to produce: not requested again (a hole rather than a stall). */
   readonly failed = new Set<string>();
   private ready: P[] = [];

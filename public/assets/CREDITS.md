@@ -18,6 +18,9 @@ Every third-party asset shipped in `public/` is listed here with its source and 
 | `textures/wood_*.jpg` | https://polyhaven.com/a/dark_wooden_planks | Amal Kumar | CC0 |
 | `textures/roofTiles_*.jpg` | https://polyhaven.com/a/grey_roof_tiles | Rob Tuytel | CC0 |
 | `textures/rooftop_*.jpg` | https://polyhaven.com/a/concrete_floor_painted | Rob Tuytel | CC0 |
+| `../audio/radio/midnight-drive.mp3` | https://opengameart.org/content/midnight-drive | Pro Sensory | CC0 |
+| `../audio/radio/synth-wave.mp3` | https://opengameart.org/content/synth-wave | Hitctrl | CC0 |
+| `../audio/radio/space-city.mp3` | https://opengameart.org/content/space-city | MrAmogus | CC0 |
 | Noto Sans JP (npm `@fontsource/noto-sans-jp`, bundled subsets) | https://fonts.google.com/noto/specimen/Noto+Sans+JP | Google / Adobe | SIL Open Font License 1.1 |
 | N8AO ambient occlusion (npm `n8ao`) | https://github.com/N8python/n8ao | N8python | MIT |
 

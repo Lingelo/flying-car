@@ -60,6 +60,17 @@ export class Radio {
   }
 
   /** Adds tracks at the end, leaving the current track and its playback alone. */
+  /**
+   * Puts tracks at the head of the playlist (the station's own music before the generated one).
+   * A track already playing keeps playing; otherwise the first new track becomes current.
+   */
+  prependTracks(tracks: Track[]): void {
+    if (!tracks.length) return;
+    this.tracks = [...tracks, ...this.tracks];
+    if (this.started) this.index += tracks.length;
+    else this.index = 0;
+  }
+
   appendTracks(tracks: Track[]): void {
     const wasEmpty = !this.tracks.length;
     this.tracks = [...this.tracks, ...tracks];

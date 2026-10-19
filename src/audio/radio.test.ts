@@ -134,3 +134,26 @@ describe('Radio.appendTracks', () => {
     expect(radio.current?.title).toBe('C');
   });
 });
+
+describe('Radio.prependTracks', () => {
+  it('opens on the new tracks when nothing played yet', () => {
+    const player = new FakePlayer();
+    const radio = new Radio(tracks.slice(1, 3), player);
+    radio.prependTracks([tracks[0]]);
+    radio.toggle();
+    expect(radio.current?.title).toBe('A');
+    expect(player.log).toEqual(['play A']);
+  });
+
+  it('keeps the track playing, then wraps around to the new ones', () => {
+    const player = new FakePlayer();
+    const radio = new Radio(tracks.slice(1, 3), player);
+    radio.toggle();
+    radio.prependTracks([tracks[0]]);
+    expect(radio.current?.title).toBe('B');
+    expect(player.log).toEqual(['play B']);
+    radio.next();
+    radio.next();
+    expect(radio.current?.title).toBe('A');
+  });
+});

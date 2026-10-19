@@ -1,1 +1,5 @@
-[]
+[
+  { "title": "Midnight Drive", "artist": "Pro Sensory", "license": "CC0", "file": "midnight-drive.mp3" },
+  { "title": "Synth Wave", "artist": "Hitctrl", "license": "CC0", "file": "synth-wave.mp3" },
+  { "title": "Space City", "artist": "MrAmogus", "license": "CC0", "file": "space-city.mp3" }
+]

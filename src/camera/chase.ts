@@ -64,8 +64,8 @@ export class ChaseCamera {
     // Smoothing world positions behind a moving car leaves a lag of about speed / rate, which changes
     // with every uneven frame: at flight speed the car visibly shakes on screen. Horizontally, the
     // offsets from the car are smoothed instead, so the lag stays out of the motion and only turns
-    // and the boom are softened. Vertically the world position is kept: climbs are slow, and a step
-    // of the car must not jolt the view.
+    // and the boom are softened. Vertically the world position is kept, carried along with the
+    // climb: a step of the car (hover clamp over a roof edge) must not jolt the view.
     const car = new THREE.Vector3(s.position.x, 0, s.position.z);
     const wantedOffset = new THREE.Vector3(desired.x - car.x, 0, desired.z - car.z);
     const wantedAim = new THREE.Vector3(target.x - car.x, 0, target.z - car.z);
@@ -79,9 +79,12 @@ export class ChaseCamera {
       // Pulled in by a building: follow it closely so the car never disappears.
       const rate = allowed < 1 ? 30 : 9;
       dampVector(this.offset, wantedOffset, rate, dt);
-      this.height += (desired.y - this.height) * damping(rate, dt);
+      // Carried along with the car's climb first, then smoothed: a steady climb leaves no lag (whose
+      // size would change with every uneven frame), only sudden steps are softened.
+      const rise = s.velocity.y * dt;
+      this.height += rise + (desired.y - this.height - rise) * damping(rate, dt);
       dampVector(this.aim, wantedAim, 14, dt);
-      this.aimHeight += (target.y - this.aimHeight) * damping(14, dt);
+      this.aimHeight += rise + (target.y - this.aimHeight - rise) * damping(14, dt);
     }
     camera.position.set(car.x + this.offset.x, Math.max(this.height, s.floor + 0.6), car.z + this.offset.z);
     camera.up.set(0, 1, 0);
