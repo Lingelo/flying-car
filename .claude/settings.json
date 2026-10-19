@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "dojo": {
+      "source": { "source": "github", "repo": "Lingelo/dojo" }
+    }
+  },
+  "enabledPlugins": {
+    "kaizen@dojo": true
+  }
+}
