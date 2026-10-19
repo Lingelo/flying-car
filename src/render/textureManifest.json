@@ -1,0 +1,102 @@
+{
+  "source": "https://polyhaven.com",
+  "license": "CC0",
+  "textures": [
+    {
+      "id": "panels",
+      "polyhaven": "concrete_panels",
+      "metres": 6,
+      "use": "facade",
+      "res": "2k"
+    },
+    {
+      "id": "tiles",
+      "polyhaven": "rectangular_facade_tiles",
+      "metres": 3,
+      "use": "facade",
+      "res": "2k"
+    },
+    {
+      "id": "precast",
+      "polyhaven": "precast_concrete_wall",
+      "metres": 4,
+      "use": "facade",
+      "res": "2k"
+    },
+    {
+      "id": "tileFacade",
+      "polyhaven": "concrete_tile_facade",
+      "metres": 3,
+      "use": "facade",
+      "res": "2k"
+    },
+    {
+      "id": "corrugated",
+      "polyhaven": "corrugated_iron_02",
+      "metres": 3,
+      "use": "facade",
+      "res": "2k"
+    },
+    {
+      "id": "metal",
+      "polyhaven": "metal_plate",
+      "metres": 2,
+      "use": "props"
+    },
+    {
+      "id": "shutter",
+      "polyhaven": "painted_metal_shutter",
+      "metres": 3,
+      "use": "props"
+    },
+    {
+      "id": "asphalt",
+      "polyhaven": "worn_asphalt",
+      "metres": 6,
+      "use": "road",
+      "res": "2k"
+    },
+    {
+      "id": "pavement",
+      "polyhaven": "herringbone_concrete_tile_02",
+      "metres": 2,
+      "use": "ground",
+      "res": "2k"
+    },
+    {
+      "id": "rustyPaint",
+      "polyhaven": "rusty_painted_metal",
+      "metres": 2,
+      "use": "props"
+    },
+    {
+      "id": "concrete",
+      "polyhaven": "concrete_wall_006",
+      "metres": 3,
+      "use": "props"
+    },
+    {
+      "id": "wood",
+      "polyhaven": "dark_wooden_planks",
+      "metres": 2,
+      "use": "props"
+    },
+    {
+      "id": "roofTiles",
+      "polyhaven": "grey_roof_tiles",
+      "metres": 2,
+      "use": "props"
+    },
+    {
+      "id": "rooftop",
+      "polyhaven": "concrete_floor_painted",
+      "metres": 4,
+      "use": "roof"
+    }
+  ],
+  "maps": [
+    "diff",
+    "nor",
+    "arm"
+  ]
+}
