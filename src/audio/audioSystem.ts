@@ -29,7 +29,8 @@ export class AudioSystem {
     this.radioGain.connect(master);
     this.radio = new Radio(GENERATED_TRACKS, new AudioTrackPlayer(ctx, this.radioGain));
     void loadManifest(import.meta.env.BASE_URL).then((extra) => {
-      if (extra.length) this.radio.appendTracks(extra);
+      // Real tracks first: the station opens on synthwave, the generated darkwave follows.
+      this.radio.prependTracks(extra);
     });
 
     // Browsers only allow sound after a gesture: the first click or key also switches the radio
