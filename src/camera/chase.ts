@@ -5,8 +5,14 @@ import { damping, dampVector } from './damp';
 
 /** Damped third-person camera behind the car, orbitable with the mouse or right stick. */
 export class ChaseCamera {
-  private readonly position = new THREE.Vector3();
-  private readonly lookAt = new THREE.Vector3();
+  /**
+   * Camera and aim point: horizontally relative to the car (smoothed in its frame), vertically in
+   * the world, so a sudden step of the car (hover clamp over a roof edge) stays smoothed.
+   */
+  private readonly offset = new THREE.Vector3();
+  private readonly aim = new THREE.Vector3();
+  private height = 0;
+  private aimHeight = 0;
   private orbitYaw = 0;
   private orbitPitch = 0.12;
   private idle = 0;
@@ -55,20 +61,31 @@ export class ChaseCamera {
     const fx = Math.sin(s.yaw);
     const fz = Math.cos(s.yaw);
     const target = new THREE.Vector3(s.position.x + fx * 4, s.position.y + 1, s.position.z + fz * 4);
+    // Smoothing world positions behind a moving car leaves a lag of about speed / rate, which changes
+    // with every uneven frame: at flight speed the car visibly shakes on screen. Horizontally, the
+    // offsets from the car are smoothed instead, so the lag stays out of the motion and only turns
+    // and the boom are softened. Vertically the world position is kept: climbs are slow, and a step
+    // of the car must not jolt the view.
+    const car = new THREE.Vector3(s.position.x, 0, s.position.z);
+    const wantedOffset = new THREE.Vector3(desired.x - car.x, 0, desired.z - car.z);
+    const wantedAim = new THREE.Vector3(target.x - car.x, 0, target.z - car.z);
     if (!this.initialised) {
-      this.position.copy(desired);
-      this.lookAt.copy(target);
+      this.offset.copy(wantedOffset);
+      this.aim.copy(wantedAim);
+      this.height = desired.y;
+      this.aimHeight = target.y;
       this.initialised = true;
     } else {
-      dampVector(this.position, desired, 9, dt);
       // Pulled in by a building: follow it closely so the car never disappears.
-      if (allowed < 1) dampVector(this.position, desired, 30, dt);
-      // The aim point is smoothed too: small jolts of the car in flight stay off the screen.
-      dampVector(this.lookAt, target, 14, dt);
+      const rate = allowed < 1 ? 30 : 9;
+      dampVector(this.offset, wantedOffset, rate, dt);
+      this.height += (desired.y - this.height) * damping(rate, dt);
+      dampVector(this.aim, wantedAim, 14, dt);
+      this.aimHeight += (target.y - this.aimHeight) * damping(14, dt);
     }
-    camera.position.copy(this.position);
+    camera.position.set(car.x + this.offset.x, Math.max(this.height, s.floor + 0.6), car.z + this.offset.z);
     camera.up.set(0, 1, 0);
-    camera.lookAt(this.lookAt);
+    camera.lookAt(car.x + this.aim.x, this.aimHeight, car.z + this.aim.z);
     const fov = 64 + Math.min(18, speed * 0.12);
     camera.fov += (fov - camera.fov) * damping(3, dt);
   }
